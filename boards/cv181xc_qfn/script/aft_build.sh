@@ -62,6 +62,8 @@ MK_PROJECT_PATH=$MK_SOLUTION_PATH/customization/$PROJECT
 rm -fr $MK_GENERATED_PATH
 mkdir -p $MK_GENERATED_PATH/data/
 
+echo MK_SOLUTION_PARTITION_NAME: $MK_SOLUTION_PARTITION_NAME
+
 echo $MK_SOLUTION_PATH
 echo $MK_BOARD_PATH
 echo $MK_CHIP_PATH
@@ -83,7 +85,7 @@ fi
 
 [ -f yoc.bin ] && cp -arf yoc.bin ${MK_GENERATED_PATH}/data/prim
 [ -f yoc.bin ] && cp -arf yoc.bin ${MK_GENERATED_PATH}/data/prima
-if [ ${MK_SOLUTION_PARTITION_NAME} != "" ]; then
+if [ "${MK_SOLUTION_PARTITION_NAME}" != "" ]; then
     echo "MK_SOLUTION_PARTITION_NAME is ${MK_SOLUTION_PARTITION_NAME}"
     cp -arf ${MK_BOARD_PATH}/configs/config.${MK_SOLUTION_PARTITION_NAME}.yaml ${MK_GENERATED_PATH}/data/config.yaml
     cp -arf ${MK_BOARD_PATH}/bootimgs/${MK_SOLUTION_PARTITION_NAME}/boot ${MK_GENERATED_PATH}/data/

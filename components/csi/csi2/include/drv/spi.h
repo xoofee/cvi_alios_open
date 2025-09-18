@@ -182,7 +182,7 @@ int32_t csi_spi_send(csi_spi_t *spi, const void *data, uint32_t size, uint32_t t
   \param[in]   size    Number of data items to send(byte)
   \return      Error code
 */
-csi_error_t csi_spi_send_async(csi_spi_t *spi, const void *data, uint32_t size);
+int32_t csi_spi_send_async(csi_spi_t *spi, const void *data, uint32_t size);
 
 /**
   \brief       Receiving data from SPI receiver
@@ -204,7 +204,7 @@ int32_t csi_spi_receive(csi_spi_t *spi, void *data, uint32_t size, uint32_t time
   \param[in]   size    Number of data items to receive(byte)
   \return      Error code
 */
-csi_error_t csi_spi_receive_async(csi_spi_t *spi, void *data, uint32_t size);
+int32_t csi_spi_receive_async(csi_spi_t *spi, void *data, uint32_t size);
 
 /**
   \brief       Dulplex,sending and receiving data at the same time
@@ -231,7 +231,7 @@ int32_t csi_spi_send_receive(csi_spi_t *spi, const void *data_out, void *data_in
   \param[in]   size        Data size(byte)
   \return      Error code
 */
-csi_error_t csi_spi_send_receive_async(csi_spi_t *spi, const void *data_out, void *data_in, uint32_t size);
+int32_t csi_spi_send_receive_async(csi_spi_t *spi, const void *data_out, void *data_in, uint32_t size);
 
 /*
   \brief       Set slave select num. Only valid for master

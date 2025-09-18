@@ -188,10 +188,10 @@ static void gc2093_linear_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x03f3, 0x00);
 	gc2093_write_register(ViPipe, 0x03f4, 0x36);
 	gc2093_write_register(ViPipe, 0x03f5, 0xc0);
-	gc2093_write_register(ViPipe, 0x03f6, 0x0B);
-	gc2093_write_register(ViPipe, 0x03f7, 0x11);
-	gc2093_write_register(ViPipe, 0x03f8, 0x2A);
-	gc2093_write_register(ViPipe, 0x03f9, 0x42);
+	gc2093_write_register(ViPipe, 0x03f6, 0x0A);
+	gc2093_write_register(ViPipe, 0x03f7, 0x01);
+	gc2093_write_register(ViPipe, 0x03f8, 0x1d);
+	gc2093_write_register(ViPipe, 0x03f9, 0x10);
 	gc2093_write_register(ViPipe, 0x03fc, 0x8e);
 	/****CISCTL & ANALOG*/
 	gc2093_write_register(ViPipe, 0x0087, 0x18);
@@ -202,10 +202,12 @@ static void gc2093_linear_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x01a5, 0x40);
 	gc2093_write_register(ViPipe, 0x01a6, 0x40);
 	gc2093_write_register(ViPipe, 0x01af, 0x09);
+	gc2093_write_register(ViPipe, 0x0001, 0x00);
+	gc2093_write_register(ViPipe, 0x0002, 0x02);
 	gc2093_write_register(ViPipe, 0x0003, 0x04);
-	gc2093_write_register(ViPipe, 0x0004, 0x65);
-	gc2093_write_register(ViPipe, 0x0005, 0x05);
-	gc2093_write_register(ViPipe, 0x0006, 0x78);
+	gc2093_write_register(ViPipe, 0x0004, 0x00);
+	gc2093_write_register(ViPipe, 0x0005, 0x02);
+	gc2093_write_register(ViPipe, 0x0006, 0xd5);
 	gc2093_write_register(ViPipe, 0x0007, 0x00);
 	gc2093_write_register(ViPipe, 0x0008, 0x11);
 	gc2093_write_register(ViPipe, 0x0009, 0x00);
@@ -226,17 +228,15 @@ static void gc2093_linear_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x00c7, 0xe1);
 	gc2093_write_register(ViPipe, 0x001b, 0x73);
 	gc2093_write_register(ViPipe, 0x0028, 0x0d);
-	gc2093_write_register(ViPipe, 0x0029, 0x40);
+	gc2093_write_register(ViPipe, 0x0029, 0x24);
 	gc2093_write_register(ViPipe, 0x002b, 0x04);
 	gc2093_write_register(ViPipe, 0x002e, 0x23);
 	gc2093_write_register(ViPipe, 0x0037, 0x03);
 	gc2093_write_register(ViPipe, 0x0043, 0x04);
-	gc2093_write_register(ViPipe, 0x0044, 0x30);
+	gc2093_write_register(ViPipe, 0x0044, 0x38);
 	gc2093_write_register(ViPipe, 0x004a, 0x01);
 	gc2093_write_register(ViPipe, 0x004b, 0x28);
-	gc2093_write_register(ViPipe, 0x0055, 0x30);
-	gc2093_write_register(ViPipe, 0x0066, 0x3f);
-	gc2093_write_register(ViPipe, 0x0068, 0x3f);
+	gc2093_write_register(ViPipe, 0x0055, 0x38);
 	gc2093_write_register(ViPipe, 0x006b, 0x44);
 	gc2093_write_register(ViPipe, 0x0077, 0x00);
 	gc2093_write_register(ViPipe, 0x0078, 0x20);
@@ -246,7 +246,7 @@ static void gc2093_linear_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x00e6, 0x50);
 	/*gain*/
 	gc2093_write_register(ViPipe, 0x00b6, 0xc0);
-	gc2093_write_register(ViPipe, 0x00b0, 0x68);
+	gc2093_write_register(ViPipe, 0x00b0, 0x60);
 	gc2093_write_register(ViPipe, 0x00b3, 0x00);
 	gc2093_write_register(ViPipe, 0x00b8, 0x01);
 	gc2093_write_register(ViPipe, 0x00b9, 0x00);
@@ -291,20 +291,21 @@ static void gc2093_linear_1080p30_init(VI_PIPE ViPipe)
 	 /*dark sun*/
 	gc2093_write_register(ViPipe, 0x0123, 0x08);
 	gc2093_write_register(ViPipe, 0x0123, 0x00);
-	gc2093_write_register(ViPipe, 0x0120, 0x01);
-	gc2093_write_register(ViPipe, 0x0121, 0x04);
-	gc2093_write_register(ViPipe, 0x0122, 0x65);
+	gc2093_write_register(ViPipe, 0x0120, 0x00);
+	gc2093_write_register(ViPipe, 0x0121, 0x00);
+	gc2093_write_register(ViPipe, 0x0122, 0x0f);
 	gc2093_write_register(ViPipe, 0x0124, 0x03);
 	gc2093_write_register(ViPipe, 0x0125, 0xff);
+	gc2093_write_register(ViPipe, 0x0126, 0x3c);
 	gc2093_write_register(ViPipe, 0x001a, 0x8c);
 	gc2093_write_register(ViPipe, 0x00c6, 0xe0);
 	/*blk*/
 	gc2093_write_register(ViPipe, 0x0026, 0x30);
 	gc2093_write_register(ViPipe, 0x0142, 0x00);
 	gc2093_write_register(ViPipe, 0x0149, 0x1e);
-	gc2093_write_register(ViPipe, 0x014a, 0x0f);
-	gc2093_write_register(ViPipe, 0x014b, 0x00);
-	gc2093_write_register(ViPipe, 0x0155, 0x07);
+	gc2093_write_register(ViPipe, 0x014a, 0x07);
+	gc2093_write_register(ViPipe, 0x014b, 0x80);
+	gc2093_write_register(ViPipe, 0x0155, 0x00);
 	gc2093_write_register(ViPipe, 0x0414, 0x78);
 	gc2093_write_register(ViPipe, 0x0415, 0x78);
 	gc2093_write_register(ViPipe, 0x0416, 0x78);
@@ -326,7 +327,7 @@ static void gc2093_linear_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x0203, 0xb6);
 	gc2093_write_register(ViPipe, 0x0212, 0x80);
 	gc2093_write_register(ViPipe, 0x0213, 0x07);
-	gc2093_write_register(ViPipe, 0x0215, 0x10);
+	gc2093_write_register(ViPipe, 0x0215, 0x12);
 	gc2093_write_register(ViPipe, 0x003e, 0x91);
 
 	 gc2093_default_reg_init(ViPipe);
@@ -339,9 +340,9 @@ static void gc2093_wdr_1080p30_init(VI_PIPE ViPipe)
 {
 	usleep(10*1000);
 	/****system**/
-	gc2093_write_register(ViPipe, 0x03fe, 0xf0);
-	gc2093_write_register(ViPipe, 0x03fe, 0xf0);
-	gc2093_write_register(ViPipe, 0x03fe, 0xf0);
+	gc2093_write_register(ViPipe, 0x03fe, 0x80);
+	gc2093_write_register(ViPipe, 0x03fe, 0x80);
+	gc2093_write_register(ViPipe, 0x03fe, 0x80);
 	gc2093_write_register(ViPipe, 0x03fe, 0x00);
 	gc2093_write_register(ViPipe, 0x03f2, 0x00);
 	gc2093_write_register(ViPipe, 0x03f3, 0x00);
@@ -362,9 +363,9 @@ static void gc2093_wdr_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x01a6, 0x40);
 	gc2093_write_register(ViPipe, 0x01af, 0x09);
 	gc2093_write_register(ViPipe, 0x0001, 0x00);
-	gc2093_write_register(ViPipe, 0x0002, 0x02);
-	gc2093_write_register(ViPipe, 0x0003, 0x04);
-	gc2093_write_register(ViPipe, 0x0004, 0x02);
+	gc2093_write_register(ViPipe, 0x0002, 0x02); // 0x02
+	gc2093_write_register(ViPipe, 0x0003, 0x00); // 0x04
+	gc2093_write_register(ViPipe, 0x0004, 0x10); // 0x02
 	gc2093_write_register(ViPipe, 0x0005, 0x02);
 	gc2093_write_register(ViPipe, 0x0006, 0x94);
 	gc2093_write_register(ViPipe, 0x0007, 0x00);
@@ -392,12 +393,10 @@ static void gc2093_wdr_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x002e, 0x23);
 	gc2093_write_register(ViPipe, 0x0037, 0x03);
 	gc2093_write_register(ViPipe, 0x0043, 0x04);
-	gc2093_write_register(ViPipe, 0x0044, 0x28);
+	gc2093_write_register(ViPipe, 0x0044, 0x20);
 	gc2093_write_register(ViPipe, 0x004a, 0x01);
 	gc2093_write_register(ViPipe, 0x004b, 0x20);
-	gc2093_write_register(ViPipe, 0x0055, 0x28);
-	gc2093_write_register(ViPipe, 0x0066, 0x3f);
-	gc2093_write_register(ViPipe, 0x0068, 0x3f);
+	gc2093_write_register(ViPipe, 0x0055, 0x30);
 	gc2093_write_register(ViPipe, 0x006b, 0x44);
 	gc2093_write_register(ViPipe, 0x0077, 0x00);
 	gc2093_write_register(ViPipe, 0x0078, 0x20);
@@ -407,22 +406,58 @@ static void gc2093_wdr_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x00e6, 0x50);
 	/*gain*/
 	gc2093_write_register(ViPipe, 0x00b6, 0xc0);
-	gc2093_write_register(ViPipe, 0x00b0, 0x68);
+	gc2093_write_register(ViPipe, 0x00b0, 0x88); // 0x68
+	gc2093_write_register(ViPipe, 0x00b3, 0x00);
+	gc2093_write_register(ViPipe, 0x00b8, 0x01);
+	gc2093_write_register(ViPipe, 0x00b9, 0x00);
+	gc2093_write_register(ViPipe, 0x00b1, 0x01);
+	gc2093_write_register(ViPipe, 0x00b2, 0x00);
 	/*isp*/
 	gc2093_write_register(ViPipe, 0x0101, 0x0c);
 	gc2093_write_register(ViPipe, 0x0102, 0x89);
 	gc2093_write_register(ViPipe, 0x0104, 0x01);
-	gc2093_write_register(ViPipe, 0x010e, 0x01);
+	gc2093_write_register(ViPipe, 0x0107, 0xa6);
+	gc2093_write_register(ViPipe, 0x0108, 0xa9);
+	gc2093_write_register(ViPipe, 0x0109, 0xa8);
+	gc2093_write_register(ViPipe, 0x010a, 0xa7);
+	gc2093_write_register(ViPipe, 0x010b, 0xff);
+	gc2093_write_register(ViPipe, 0x010c, 0xff);
 	gc2093_write_register(ViPipe, 0x010f, 0x00);
 	gc2093_write_register(ViPipe, 0x0158, 0x00);
+
+	gc2093_write_register(ViPipe, 0x0428, 0x86);
+	gc2093_write_register(ViPipe, 0x0429, 0x86);
+	gc2093_write_register(ViPipe, 0x042a, 0x86);
+	gc2093_write_register(ViPipe, 0x042b, 0x68);
+	gc2093_write_register(ViPipe, 0x042c, 0x68);
+	gc2093_write_register(ViPipe, 0x042d, 0x68);
+	gc2093_write_register(ViPipe, 0x042e, 0x68);
+	gc2093_write_register(ViPipe, 0x042f, 0x68);
+	gc2093_write_register(ViPipe, 0x0430, 0x4f);
+	gc2093_write_register(ViPipe, 0x0431, 0x68);
+	gc2093_write_register(ViPipe, 0x0432, 0x67);
+	gc2093_write_register(ViPipe, 0x0433, 0x66);
+	gc2093_write_register(ViPipe, 0x0434, 0x66);
+	gc2093_write_register(ViPipe, 0x0435, 0x66);
+	gc2093_write_register(ViPipe, 0x0436, 0x66);
+	gc2093_write_register(ViPipe, 0x0437, 0x66);
+	gc2093_write_register(ViPipe, 0x0438, 0x62);
+	gc2093_write_register(ViPipe, 0x0439, 0x62);
+	gc2093_write_register(ViPipe, 0x043a, 0x62);
+	gc2093_write_register(ViPipe, 0x043b, 0x62);
+	gc2093_write_register(ViPipe, 0x043c, 0x62);
+	gc2093_write_register(ViPipe, 0x043d, 0x62);
+	gc2093_write_register(ViPipe, 0x043e, 0x62);
+	gc2093_write_register(ViPipe, 0x043f, 0x62);
 	/*dark sun*/
 	gc2093_write_register(ViPipe, 0x0123, 0x08);
 	gc2093_write_register(ViPipe, 0x0123, 0x00);
 	gc2093_write_register(ViPipe, 0x0120, 0x01);
-	gc2093_write_register(ViPipe, 0x0121, 0x04);
-	gc2093_write_register(ViPipe, 0x0122, 0xd8);
+	gc2093_write_register(ViPipe, 0x0121, 0x00);
+	gc2093_write_register(ViPipe, 0x0122, 0x10);
 	gc2093_write_register(ViPipe, 0x0124, 0x03);
 	gc2093_write_register(ViPipe, 0x0125, 0xff);
+	gc2093_write_register(ViPipe, 0x0126, 0x3c);
 	gc2093_write_register(ViPipe, 0x001a, 0x8c);
 	gc2093_write_register(ViPipe, 0x00c6, 0xe0);
 	/*blk*/
@@ -431,7 +466,7 @@ static void gc2093_wdr_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x0149, 0x1e);
 	gc2093_write_register(ViPipe, 0x014a, 0x0f);
 	gc2093_write_register(ViPipe, 0x014b, 0x00);
-	gc2093_write_register(ViPipe, 0x0155, 0x07);
+	gc2093_write_register(ViPipe, 0x0155, 0x00);
 	gc2093_write_register(ViPipe, 0x0414, 0x78);
 	gc2093_write_register(ViPipe, 0x0415, 0x78);
 	gc2093_write_register(ViPipe, 0x0416, 0x78);
@@ -453,7 +488,7 @@ static void gc2093_wdr_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x007b, 0x2a);
 	gc2093_write_register(ViPipe, 0x0023, 0x2d);
 	gc2093_write_register(ViPipe, 0x0201, 0x27);
-	gc2093_write_register(ViPipe, 0x0202, 0x56);
+	gc2093_write_register(ViPipe, 0x0202, 0x57); // 0x56
 	gc2093_write_register(ViPipe, 0x0203, 0xb6);
 	gc2093_write_register(ViPipe, 0x0212, 0x80);
 	gc2093_write_register(ViPipe, 0x0213, 0x07);
@@ -461,7 +496,7 @@ static void gc2093_wdr_1080p30_init(VI_PIPE ViPipe)
 	gc2093_write_register(ViPipe, 0x003e, 0x91);
 	/****HDR EN**/
 	gc2093_write_register(ViPipe, 0x0027, 0x71);
-	gc2093_write_register(ViPipe, 0x0215, 0x92);
+	gc2093_write_register(ViPipe, 0x0215, 0x92);	// 0x92
 	gc2093_write_register(ViPipe, 0x024d, 0x01);
 	gc2093_default_reg_init(ViPipe);
 	usleep(80*1000);

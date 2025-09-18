@@ -96,8 +96,8 @@ static void reorder_back_tiu_cmdbuf_reg(uint8_t *cmdbuf)
 
 static void tdma_des_fill_str(TPU_DES_ELEMENT *element)
 {
-  char str1[50] = {0};
-  char tmpStr[10] = {0};
+  char str1[36] = {0};
+  char tmpStr[8] = {0};
 
   switch(element->pmuEvent.type) {
     case TPU_PMUTYPE_TDMALOAD:

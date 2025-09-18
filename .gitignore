@@ -90,3 +90,4 @@ solutions/**/.sconsign.dblite
 .yoc
 solutions/package.yaml
 install
+host-tools/Xuantie-900-gcc-elf-newlib-x86_64-V2.6.1/

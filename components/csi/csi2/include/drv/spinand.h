@@ -288,7 +288,7 @@ csi_error_t  csi_spinand_block_mark_bad(csi_spinand_t *spinand, uint64_t block_a
   \param[in]   spinand      NANDFLASH handle to operate
   \return      Error code
 */
-int32_t  csi_spinand_reset(csi_spinand_t *spinand);
+csi_error_t csi_spinand_reset(csi_spinand_t *spinand);
 
 /**
   \brief       Set QSPI frequence
