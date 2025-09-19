@@ -22,6 +22,10 @@ cp ${BOOT0_BIN} $MK_GENERATED_PATH/data
 cp ${BOOT_BIN} $MK_GENERATED_PATH/data
 cp "$BOARDS_CONFIG_PATH/config.yaml" $MK_GENERATED_PATH/data/
 
+# Copy fip.bin to generated images
+echo "[INFO] Copy fip.bin to generated images"
+cp ../../boards/tools/fip/181x_250918/fip.bin $MK_GENERATED_PATH/data/
+
 CURDIR=${BASE_PWD}
 HAASUI_SDK_DIR=$PATH_HAASUI_SDK
 BOARD_DIR=$BOARD_PATH

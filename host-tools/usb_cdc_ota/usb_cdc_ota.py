@@ -44,6 +44,10 @@ def find_usb_cdc_cmm(attempts=20, delay=1):
         if debug: print(f"尝试 {attempt + 1}/{attempts}...")
         ports = serial.tools.list_ports.comports()
         for port in ports:
+            if port.description == "n/a":
+                continue
+            
+            print(port.description)
             if "USB 串行设备" in port.description:
                 if debug: print("找到 USB 串行设备:", port.device)
                 return port.device
@@ -297,6 +301,17 @@ def set_ota_flag_task():
         if device is None:
             if debug: print("未找到设备")
             return None
+
+        # if kernel driver active, detach it, or it complains busy
+        for cfg in device:
+            for intf in cfg:
+                if device.is_kernel_driver_active(intf.bInterfaceNumber):
+                    try:
+                        device.detach_kernel_driver(intf.bInterfaceNumber)
+                        print(f"Detached kernel driver from interface {intf.bInterfaceNumber}")
+                    except usb.core.USBError as e:
+                        print(f"Could not detach kernel driver: {str(e)}")
+
         device.set_configuration()
 
         data = bytes.fromhex('6f 74 61 00 00 00')  # 'ota\0\0\0'
@@ -307,7 +322,7 @@ def set_ota_flag_task():
             wValue=0x0100,
             wIndex=0x0400,
             data_or_wLength=data,
-            timeout=1,
+            timeout=5,
         )
 
     except FileNotFoundError:

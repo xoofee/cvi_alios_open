@@ -23,6 +23,8 @@ all:
 	$(CPRE) scons $(VERB) --board=$(BOARD) -j4
 	$(CPRE) if [ -e $(CURDIR)/yoc_sdk/lib/libcviai.a ]; then $(STRIP) --strip-unneeded $(CURDIR)/yoc_sdk/lib/libcviai.a; fi
 	@cp yoc.bin $(MK_GENERATED_IMGS_PATH)/data/prim
+	@echo [INFO] Copy fip.bin to generated images
+	$(CPRE) cp ../../boards/tools/fip/181x_250918/fip.bin $(MK_GENERATED_IMGS_PATH)/data/
 ifeq ($(YOC_COMPRESS),y)
 	@echo YoC Compress start
 	$(CPRE) lz4 -f yoc.bin

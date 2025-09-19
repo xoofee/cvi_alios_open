@@ -95,6 +95,7 @@ static void _print_record_time(void)
 #endif
 int main(int argc, char *argv[])
 {
+	// printf("hello, xf\n");
 #ifdef CONFIG_DUMP_RECORD_TIME
 	t_r.app_main = DIV_ROUND_UP(timer_get_boot_us(), 1000);
 	_dump_record_time();
@@ -145,7 +146,7 @@ int main(int argc, char *argv[])
 	isp_daemon2_init(5566);
 	cvi_raw_dump_init();
 #endif
-	LOGI(TAG, "app start........\n");
+	LOGI(TAG, "hello xf, app start with USB CDC UART\n");
 	APP_CustomEventStart();
 #ifdef CONFIG_DUMP_RECORD_TIME
 	aos_msleep(300);
