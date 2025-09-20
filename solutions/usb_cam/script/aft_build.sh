@@ -26,6 +26,32 @@ cp "$BOARDS_CONFIG_PATH/config.yaml" $MK_GENERATED_PATH/data/
 echo "[INFO] Copy fip.bin to generated images"
 cp ../../boards/tools/fip/181x_250918/fip.bin $MK_GENERATED_PATH/data/
 
+# Copy AI model to weight partition
+echo "[INFO] Copy AI model to weight partition"
+if [ -f "../../models/retinaface_mnet0.25_342_608.cvimodel" ]; then
+    cp ../../models/retinaface_mnet0.25_342_608.cvimodel $MK_GENERATED_PATH/data/
+    echo "[INFO] Model copied: retinaface_mnet0.25_342_608.cvimodel"
+    
+    # Create weight partition image
+    echo "[INFO] Creating weight partition image..."
+    MODEL_SIZE=$(stat -c%s "../../models/retinaface_mnet0.25_342_608.cvimodel")
+    WEIGHT_SIZE=0x850000  # 8.3125 MB
+    
+    if [ $MODEL_SIZE -le $WEIGHT_SIZE ]; then
+        # Create weight.bin with model file
+        dd if=/dev/zero of="$MK_GENER
+         ATED_PATH/data/weight.bin" bs=1 count=$WEIGHT_SIZE 2>/dev/null
+        dd if="../../models/retinaface_mnet0.25_342_608.cvimodel" of="$MK_GENERATED_PATH/data/weight.bin" bs=1 conv=notrunc 2>/dev/null
+        echo "[INFO] Weight partition image created: weight.bin ($(($WEIGHT_SIZE / 1024 / 1024)) MB)"
+    else
+        echo "[ERROR] Model file too large for weight partition!"
+        echo "[ERROR] Model: $MODEL_SIZE bytes, Weight partition: $WEIGHT_SIZE bytes"
+    fi
+else
+    echo "[WARN] Model file not found: ../../models/retinaface_mnet0.25_342_608.cvimodel"
+    echo "[INFO] Please place your .cvimodel file in: ../../models/"
+fi
+
 CURDIR=${BASE_PWD}
 HAASUI_SDK_DIR=$PATH_HAASUI_SDK
 BOARD_DIR=$BOARD_PATH
