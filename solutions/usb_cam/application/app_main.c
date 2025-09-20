@@ -146,7 +146,11 @@ int main(int argc, char *argv[])
 	isp_daemon2_init(5566);
 	cvi_raw_dump_init();
 #endif
-	LOGI(TAG, "hello xf, app start with USB CDC UART\n");
+	LOGI(TAG, "hello xf 2, start\n");
+	LOGI(TAG, "print 100 chars of weight\n");
+
+	print_weight_partition_first_100_chars();
+
 	APP_CustomEventStart();
 #ifdef CONFIG_DUMP_RECORD_TIME
 	aos_msleep(300);
@@ -156,4 +160,30 @@ int main(int argc, char *argv[])
 	while (1) {
 		aos_msleep(3000);
 	};
+}
+
+void print_weight_partition_first_100_chars(void)
+{
+    #define WEIGHT_PARTITION_ADDR 0x4DE000
+    #define WEIGHT_PARTITION_PRINT_SIZE 100
+
+    // You may need to include "drv/spiflash.h" and define or use a global csi_spiflash_t handle.
+    extern csi_spiflash_t g_spiflash_handle;
+
+    uint8_t buf[WEIGHT_PARTITION_PRINT_SIZE + 1] = {0};
+    int ret = csi_spiflash_read(&g_spiflash_handle, WEIGHT_PARTITION_ADDR, buf, WEIGHT_PARTITION_PRINT_SIZE);
+    if (ret != 0) {
+        printf("Failed to read weight partition: %d\n", ret);
+        return;
+    }
+    buf[WEIGHT_PARTITION_PRINT_SIZE] = '\0'; // Null-terminate for safe printing
+    printf("First %d bytes of weight partition:\n", WEIGHT_PARTITION_PRINT_SIZE);
+    for (int i = 0; i < WEIGHT_PARTITION_PRINT_SIZE; ++i) {
+        if (buf[i] >= 32 && buf[i] <= 126) {
+            putchar(buf[i]);
+        } else {
+            putchar('.');
+        }
+    }
+    putchar('\n');
 }
