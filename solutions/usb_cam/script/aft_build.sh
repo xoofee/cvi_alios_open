@@ -23,7 +23,7 @@ cp ${BOOT_BIN} $MK_GENERATED_PATH/data
 cp "$BOARDS_CONFIG_PATH/config.yaml" $MK_GENERATED_PATH/data/
 
 # Copy fip.bin to generated images
-echo "[INFO] Copy fip.bin to generated images"
+echo "[INFO]2 Copy fip.bin to generated images"
 cp ../../boards/tools/fip/181x_250918/fip.bin $MK_GENERATED_PATH/data/
 
 # Copy AI model to weight partition

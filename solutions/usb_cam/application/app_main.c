@@ -6,6 +6,7 @@
 #include <ulog/ulog.h>
 #include <unistd.h>
 #include <drv/tick.h>
+#include <drv/spiflash.h>
 #include "common_yocsystem.h"
 #include "media_video.h"
 #include "gui_display.h"
@@ -36,6 +37,9 @@ extern int csi_uart_set_output_stat(int stat);
 #endif
 
 #define TAG "app"
+
+// Function declarations
+void print_weight_partition_first_100_chars(void);
 
 #if CONFIG_QUICK_STARTUP_SUPPORT
 #define CONFIG_DUMP_RECORD_TIME
@@ -146,7 +150,7 @@ int main(int argc, char *argv[])
 	isp_daemon2_init(5566);
 	cvi_raw_dump_init();
 #endif
-	LOGI(TAG, "hello xf 2, start\n");
+	LOGI(TAG, "hello xf 3, start\n");
 	LOGI(TAG, "print 100 chars of weight\n");
 
 	print_weight_partition_first_100_chars();
@@ -167,13 +171,19 @@ void print_weight_partition_first_100_chars(void)
     #define WEIGHT_PARTITION_ADDR 0x4DE000
     #define WEIGHT_PARTITION_PRINT_SIZE 100
 
-    // You may need to include "drv/spiflash.h" and define or use a global csi_spiflash_t handle.
-    extern csi_spiflash_t g_spiflash_handle;
+    // Initialize spiflash handle
+    csi_spiflash_t spiflash_handle;
+    int ret_init = csi_spiflash_spi_init(&spiflash_handle, 0, NULL);
+    if (ret_init != 0) {
+        printf("Failed to initialize spiflash: %d\n", ret_init);
+        return;
+    }
 
     uint8_t buf[WEIGHT_PARTITION_PRINT_SIZE + 1] = {0};
-    int ret = csi_spiflash_read(&g_spiflash_handle, WEIGHT_PARTITION_ADDR, buf, WEIGHT_PARTITION_PRINT_SIZE);
+    int ret = csi_spiflash_read(&spiflash_handle, WEIGHT_PARTITION_ADDR, buf, WEIGHT_PARTITION_PRINT_SIZE);
     if (ret != 0) {
         printf("Failed to read weight partition: %d\n", ret);
+        csi_spiflash_spi_uninit(&spiflash_handle);
         return;
     }
     buf[WEIGHT_PARTITION_PRINT_SIZE] = '\0'; // Null-terminate for safe printing
@@ -186,4 +196,7 @@ void print_weight_partition_first_100_chars(void)
         }
     }
     putchar('\n');
+    
+    // Cleanup spiflash handle
+    csi_spiflash_spi_uninit(&spiflash_handle);
 }
