@@ -34,7 +34,8 @@ endif
 	@echo YoC SDK Done
 	@echo [INFO] Running post-build script
 
-	@echo [INFO] Create imtb bin file
+	@echo [INFO] Create imtb bin file, this is not for zip, only for imtb
+	# it first create a zip file which is used for create imtb. so the images.zip is a intermediate file.
 	$(CPRE) product image $(MK_GENERATED_IMGS_PATH)/images.zip -i $(MK_GENERATED_IMGS_PATH)/data -l -p
 	$(CPRE) product image $(MK_GENERATED_IMGS_PATH)/images.zip -e $(MK_GENERATED_IMGS_PATH) -x
 	$(CPRE) unzip -o generated/images.zip -d generated/images
