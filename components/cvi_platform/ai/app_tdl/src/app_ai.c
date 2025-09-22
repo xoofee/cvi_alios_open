@@ -274,7 +274,7 @@ void *APP_Ai_Task(void *arg)
             continue;
         }
         memset(&faceMeta, 0, sizeof(cvtdl_face_t));
-        CVI_TDL_RetinaFace(g_AiHandle, &stfdFrame, &faceMeta);
+        CVI_TDL_FaceDetection(g_AiHandle, &stfdFrame, CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &faceMeta);
         CVI_TDL_FaceRecognition(g_AiHandle, &stfdFrame, &faceMeta);
         s32Ret = CVI_VPSS_ReleaseChnFrame(CVIAI_VPSS_USE_GRP, CVIAI_VPSS_USE_CHN, &stfdFrame);
         if (s32Ret != CVI_SUCCESS) {
@@ -362,7 +362,7 @@ void APP_AI_Register_Face(int argc,char **argv)
         return ;
     }
     memset(&faceMeta, 0, sizeof(cvtdl_face_t));
-    CVI_TDL_RetinaFace(g_AiHandle, &stfdFrame, &faceMeta);
+    CVI_TDL_FaceDetection(g_AiHandle, &stfdFrame, CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &faceMeta);
     CVI_TDL_FaceRecognition(g_AiHandle, &stfdFrame, &faceMeta);
     if(faceMeta.size == 1) {
         const uint8_t*ptr = (const uint8_t*)faceMeta.info[0].feature.ptr;

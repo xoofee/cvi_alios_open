@@ -22,9 +22,6 @@ all:
 	$(CPRE) ln -sf customization/$(PROJECT)/package.$(PROJECT).yaml package.yaml
 	$(CPRE) scons $(VERB) --board=$(BOARD) -j4
 	$(CPRE) if [ -e $(CURDIR)/yoc_sdk/lib/libcviai.a ]; then $(STRIP) --strip-unneeded $(CURDIR)/yoc_sdk/lib/libcviai.a; fi
-	@cp yoc.bin $(MK_GENERATED_IMGS_PATH)/data/prim
-	@echo [INFO] Copy fip.bin to generated images
-	$(CPRE) cp ../../boards/tools/fip/181x_250918/fip.bin $(MK_GENERATED_IMGS_PATH)/data/
 ifeq ($(YOC_COMPRESS),y)
 	@echo YoC Compress start
 	$(CPRE) lz4 -f yoc.bin
@@ -35,12 +32,15 @@ ifeq ($(YOC_COMPRESS),y)
 	@echo YoC Compress done
 endif
 	@echo YoC SDK Done
-	@echo [INFO] Create bin files
+	@echo [INFO] Running post-build script
 
 	@echo [INFO] Create imtb bin file
 	$(CPRE) product image $(MK_GENERATED_IMGS_PATH)/images.zip -i $(MK_GENERATED_IMGS_PATH)/data -l -p
 	$(CPRE) product image $(MK_GENERATED_IMGS_PATH)/images.zip -e $(MK_GENERATED_IMGS_PATH) -x
 	$(CPRE) unzip -o generated/images.zip -d generated/images
+
+
+	$(CPRE) if [ -e $(CURDIR)/script/aft_build.sh ]; then bash $(CURDIR)/script/aft_build.sh; fi
 
 .PHONY:flashall
 flashall:

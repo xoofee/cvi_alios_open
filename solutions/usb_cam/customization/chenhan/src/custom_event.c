@@ -23,7 +23,7 @@ int APP_CustomEventStart(void)
         printf("🎯 Monitoring video stream for faces...\n");
     } else {
         printf("❌ Failed to start face detection system!\n");
-        printf("💡 Make sure RetinaFace model is available at: %s\n", RETINA_FACE_MODEL_PATH);
+        printf("💡 Make sure RetinaFace model is available \n");
     }
 #endif
     

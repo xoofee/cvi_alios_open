@@ -96,7 +96,7 @@ void cvitdl_face_detection(int32_t argc, char **argv) {
     printf("frame[%u]: width[%u], height[%u]\n", counter, stVideoFrame.stVFrame.u32Width, stVideoFrame.stVFrame.u32Height);
 
     if (counter > 0){
-      CVI_TDL_RetinaFace(ai_handle, &stVideoFrame, &face_meta);
+      CVI_TDL_FaceDetection(ai_handle, &stVideoFrame, CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &face_meta);
     } else {
       printf("ignore counter 0 (workaround)\n");
     }
@@ -165,7 +165,7 @@ void cvitdl_read_bin_face_detection(int32_t argc, char **argv) {
   cvtdl_face_t face_meta;
   memset(&face_meta, 0, sizeof(cvtdl_face_t));
   LOGI(AI_TAG, "image read done,w:%d\n",frame.stVFrame.u32Width);
-  CVI_TDL_RetinaFace(ai_handle, &frame, &face_meta);
+  CVI_TDL_FaceDetection(ai_handle, &frame, CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &face_meta);
   LOGI(AI_TAG, "face meta: size[%u]\n",face_meta.size);
 
   printf("face_size:%u\n",face_meta.size);

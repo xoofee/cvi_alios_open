@@ -16,6 +16,7 @@
 #include "ethernet_init.h"
 #include "media_nightvision.h"
 #include "usbd_comp.h"
+#include <drv/spiflash.h>
 
 
 #if CONFIG_USBD_CDC_RNDIS
@@ -36,6 +37,11 @@ extern int csi_uart_set_output_stat(int stat);
 #endif
 
 #define TAG "app"
+
+
+// Function declarations
+void print_weight_partition_first_100_chars(void);
+
 
 #if CONFIG_QUICK_STARTUP_SUPPORT
 #define CONFIG_DUMP_RECORD_TIME
@@ -147,6 +153,11 @@ int main(int argc, char *argv[])
 	cvi_raw_dump_init();
 #endif
 	LOGI(TAG, "hello xf, app start with USB CDC UART\n");
+
+
+	print_weight_partition_first_100_chars();
+
+
 	APP_CustomEventStart();
 #ifdef CONFIG_DUMP_RECORD_TIME
 	aos_msleep(300);
@@ -156,4 +167,43 @@ int main(int argc, char *argv[])
 	while (1) {
 		aos_msleep(3000);
 	};
+}
+
+
+
+
+void print_weight_partition_first_100_chars(void)
+{
+    #define WEIGHT_PARTITION_ADDR 0x4DE000
+    // #define WEIGHT_PARTITION_ADDR 0x02E000        // application, yoc.bin
+    #define WEIGHT_PARTITION_PRINT_SIZE 100
+
+    // Initialize spiflash handle
+    csi_spiflash_t spiflash_handle;
+    int ret_init = csi_spiflash_spi_init(&spiflash_handle, 0, NULL);
+    if (ret_init != 0) {
+        printf("Failed to initialize spiflash: %d\n", ret_init);
+        return;
+    }
+
+    uint8_t buf[WEIGHT_PARTITION_PRINT_SIZE + 1] = {0};
+    int ret = csi_spiflash_read(&spiflash_handle, WEIGHT_PARTITION_ADDR, buf, WEIGHT_PARTITION_PRINT_SIZE);
+    if (ret < 0) {
+        printf("Failed to read weight partition: %d\n", ret);
+        csi_spiflash_spi_uninit(&spiflash_handle);
+        return;
+    }
+    buf[WEIGHT_PARTITION_PRINT_SIZE] = '\0'; // Null-terminate for safe printing
+    printf("First %d bytes of weight partition:\n", WEIGHT_PARTITION_PRINT_SIZE);
+    for (int i = 0; i < WEIGHT_PARTITION_PRINT_SIZE; ++i) {
+        if (buf[i] >= 32 && buf[i] <= 126) {
+            putchar(buf[i]);
+        } else {
+            putchar('.');
+        }
+    }
+    putchar('\n');
+    
+    // Cleanup spiflash handle
+    csi_spiflash_spi_uninit(&spiflash_handle);
 }

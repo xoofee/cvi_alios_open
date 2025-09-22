@@ -137,6 +137,7 @@ build_config:
   include:
     - application/common/include
     - customization/include
+    - customization/chenhan/include
   internal_include:
 
   cflag: ""
@@ -210,7 +211,6 @@ def_config:
   CONFIG_APP_GUI_SUPPORT: 0
   CONFIG_APP_SENSOR_IR_USE: 0
   CONFIG_DEBUG_HOSTMCU_EMU_SUPPORT: 0
-  CONFIG_APP_AI_SUPPORT: 0
   CONFIG_SIMPLE_FONTMOD: 0
   CONFIG_VENC_TEST_CHN: 2
   CONFIG_NIGHT_VISION_SUPPORT: 0

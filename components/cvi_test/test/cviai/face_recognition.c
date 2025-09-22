@@ -133,7 +133,7 @@ int  cvitdl_face_recognition(int32_t argc, char **argv) {
     cvtdl_face_t face_meta;
     memset(&face_meta, 0, sizeof(cvtdl_face_t));
 
-    CVI_TDL_RetinaFace(ai_handle, &frame, &face_meta);
+    CVI_TDL_FaceDetection(ai_handle, &frame, CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &face_meta);
     printf("face meta: size[%u], width[%u], height[%u], rescale_type[%d]\n", 
           face_meta.size, face_meta.width, face_meta.height, face_meta.rescale_type);
     for (uint32_t i = 0; i < face_meta.size; ++i) {
@@ -203,7 +203,7 @@ int cvitdl_read_check_two_face_sim(int argc, char *argv[]) {
   cvtdl_face_t face_meta;
   memset(&face_meta, 0, sizeof(cvtdl_face_t));
   printf("image read done,w:%d\n",frame.stVFrame.u32Width);
-  CVI_TDL_RetinaFace(ai_handle, &frame, &face_meta);
+  CVI_TDL_FaceDetection(ai_handle, &frame, CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &face_meta);
   printf("face meta: size[%u], width[%u], height[%u], rescale_type[%d]\n", 
          face_meta.size, face_meta.width, face_meta.height, face_meta.rescale_type);
   for (uint32_t i = 0; i < face_meta.size; ++i) {
@@ -277,7 +277,7 @@ int cvitdl_dump_feature(int argc, char *argv[]) {
   cvtdl_face_t face_meta;
   memset(&face_meta, 0, sizeof(cvtdl_face_t));
   printf("image read done,w:%d\n",frame.stVFrame.u32Width);
-  CVI_TDL_RetinaFace(ai_handle, &frame, &face_meta);
+  CVI_TDL_FaceDetection(ai_handle, &frame, CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &face_meta);
   printf("face meta: size[%u], width[%u], height[%u], rescale_type[%d]\n", 
          face_meta.size, face_meta.width, face_meta.height, face_meta.rescale_type);
   // for (uint32_t i = 0; i < face_meta.size; ++i) {
@@ -370,7 +370,7 @@ int cvitdl_dump_feature_dir(int argc, char *argv[]) {
     cvtdl_face_t face_meta;
     memset(&face_meta, 0, sizeof(cvtdl_face_t));
     printf("image read done,w:%d\n",frame.stVFrame.u32Width);
-    CVI_TDL_RetinaFace(ai_handle, &frame, &face_meta);
+    CVI_TDL_FaceDetection(ai_handle, &frame, CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &face_meta);
     printf("face meta: size[%u], width[%u], height[%u], rescale_type[%d]\n", 
           face_meta.size, face_meta.width, face_meta.height, face_meta.rescale_type);
 
