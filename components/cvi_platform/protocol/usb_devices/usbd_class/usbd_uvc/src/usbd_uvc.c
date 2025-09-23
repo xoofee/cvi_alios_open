@@ -46,11 +46,11 @@ static struct uvc_frame_info_st yuy2_frame_info[] = {
     {5, 480, 320, 15, 0}, {6, 480, 360, 15, 0}, {7, 1280, 720, 15, 0},
 };
 
-static struct uvc_frame_info_st mjpeg_frame_info[] = {
-    {1, 800, 480, 15, 0, 10 * 1024},
-    {2, 864, 480, 30, 0, 10 * 1024},
-    {3, 1920, 1080, 30, 0, 20 * 1024},
-};
+// static struct uvc_frame_info_st mjpeg_frame_info[] = {
+//     {1, 800, 480, 15, 0, 10 * 1024},
+//     {2, 864, 480, 30, 0, 10 * 1024},
+//     {3, 1920, 1080, 30, 0, 20 * 1024},
+// };
 
 #if 0
 static struct uvc_frame_info_st h264_frame_info[] = {
@@ -72,18 +72,18 @@ static struct uvc_frame_info_st h265_frame_info[] = {
 #endif
 
 static struct uvc_format_info_st uvc_format_info_chna[] = {
-    {MJPEG_FORMAT_INDEX, UVC_FORMAT_MJPEG, 1, ARRAY_SIZE(mjpeg_frame_info), mjpeg_frame_info},
+    //{MJPEG_FORMAT_INDEX, UVC_FORMAT_MJPEG, 1, ARRAY_SIZE(mjpeg_frame_info), mjpeg_frame_info},  // Disabled MJPEG
+    {YUYV_FORMAT_INDEX, UVC_FORMAT_YUY2, 1, ARRAY_SIZE(yuy2_frame_info), yuy2_frame_info},  // Force YUYV as primary
     //{H264_FORMAT_INDEX, UVC_FORMAT_H264, 1, ARRAY_SIZE(h264_frame_info), h264_frame_info},
-    {YUYV_FORMAT_INDEX, UVC_FORMAT_YUY2, 1, ARRAY_SIZE(yuy2_frame_info), yuy2_frame_info},
     // {NV21_FORMAT_INDEX, UVC_FORMAT_NV21, 1, ARRAY_SIZE(nv21_frame_info), nv21_frame_info},
     //{H265_FORMAT_INDEX, UVC_FORMAT_H265, 1, ARRAY_SIZE(h265_frame_info), h265_frame_info},
 };
 
 #if (USBD_UVC_NUM >= 2)
 static struct uvc_format_info_st uvc_format_info_chnb[] = {
-    {MJPEG_FORMAT_INDEX, UVC_FORMAT_MJPEG, 1, ARRAY_SIZE(mjpeg_frame_info), mjpeg_frame_info},
+    //{MJPEG_FORMAT_INDEX, UVC_FORMAT_MJPEG, 1, ARRAY_SIZE(mjpeg_frame_info), mjpeg_frame_info},  // Disabled MJPEG
+    {YUYV_FORMAT_INDEX, UVC_FORMAT_YUY2, 1, ARRAY_SIZE(yuy2_frame_info), yuy2_frame_info},  // Force YUYV as primary
     //{H264_FORMAT_INDEX, UVC_FORMAT_H264, 1, ARRAY_SIZE(h264_frame_info), h264_frame_info},
-    {YUYV_FORMAT_INDEX, UVC_FORMAT_YUY2, 1, ARRAY_SIZE(yuy2_frame_info), yuy2_frame_info},
     // {NV21_FORMAT_INDEX, UVC_FORMAT_NV21, 1, ARRAY_SIZE(nv21_frame_info), nv21_frame_info},
     //{H265_FORMAT_INDEX, UVC_FORMAT_H265, 1, ARRAY_SIZE(h265_frame_info), h265_frame_info},
 };
@@ -91,9 +91,9 @@ static struct uvc_format_info_st uvc_format_info_chnb[] = {
 
 #if (USBD_UVC_NUM >= 3)
 static struct uvc_format_info_st uvc_format_info_chnc[] = {
-    {MJPEG_FORMAT_INDEX, UVC_FORMAT_MJPEG, 1, ARRAY_SIZE(mjpeg_frame_info), mjpeg_frame_info},
+    //{MJPEG_FORMAT_INDEX, UVC_FORMAT_MJPEG, 1, ARRAY_SIZE(mjpeg_frame_info), mjpeg_frame_info},  // Disabled MJPEG
+    {YUYV_FORMAT_INDEX, UVC_FORMAT_YUY2, 1, ARRAY_SIZE(yuy2_frame_info), yuy2_frame_info},  // Force YUYV as primary
     //{H264_FORMAT_INDEX, UVC_FORMAT_H264, 1, ARRAY_SIZE(h264_frame_info), h264_frame_info},
-    {YUYV_FORMAT_INDEX, UVC_FORMAT_YUY2, 1, ARRAY_SIZE(yuy2_frame_info), yuy2_frame_info},
     // {NV21_FORMAT_INDEX, UVC_FORMAT_NV21, 1, ARRAY_SIZE(nv21_frame_info), nv21_frame_info},
     //{H265_FORMAT_INDEX, UVC_FORMAT_H265, 1, ARRAY_SIZE(h265_frame_info), h265_frame_info},
 };
@@ -598,6 +598,7 @@ static uvc_video_control_callbacks_t uvc_video_control_callbks = {
 
 static void video_streaming_send(struct uvc_device_info* uvc, int dev_index)
 {
+    printf("video_streaming_send with format index %d\n", uvc->format_index);
     int i, ret = 0;
     uint32_t data_len = 0;
     uint32_t buf_len = 0, buf_len_stride = 0, packets = 0;
@@ -619,7 +620,7 @@ static void video_streaming_send(struct uvc_device_info* uvc, int dev_index)
     switch (uvc->format_index) {
     case H264_FORMAT_INDEX:
     case H265_FORMAT_INDEX:
-    case MJPEG_FORMAT_INDEX:
+    case MJPEG_FORMAT_INDEX:    // the camera index
 #if CONFIG_APP_VENC_SUPPORT
         ret = MEDIA_VIDEO_VencGetStream(uvc->video.venc_channel, pstStream, 2000);
         if (ret != CVI_SUCCESS) {
@@ -674,6 +675,7 @@ static void video_streaming_send(struct uvc_device_info* uvc, int dev_index)
             printf("CVI_VPSS_ReleaseChnFrame failed\n");
         break;
     case NV21_FORMAT_INDEX:
+        printf("NV21_FORMAT_INDEX\n");
         ret =
             CVI_VPSS_GetChnFrame(uvc->video.vpss_group, uvc->video.vpss_channel, pstVideoFrame, -1);
         if (ret != CVI_SUCCESS) {
