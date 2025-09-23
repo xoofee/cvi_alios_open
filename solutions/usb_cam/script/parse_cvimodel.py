@@ -8,7 +8,8 @@ from cvi_runtime/include/runtime/model.hpp
 example:
 wget https://github.com/sophgo/tdl_models/raw/refs/heads/main/cv181x/scrfd_det_face_432_768_INT8_cv181x.cvimodel
 python3 parse_cvimodel.py ~/work/codes/cvi_alios_open/models/scrfd_det_face_432_768_INT8_cv181x.cvimodel
-python3 solutions/usb_cam/script/parse_cvimodel.py ~/work/codes/cvi_alios_open/models/scrfd_det_face_432_768_INT8_cv181x.cvimodel
+
+python3 solutions/usb_cam/script/parse_cvimodel.py ~/work/codes/cvi_alios_open/models/scrfd_det_face_432_768_INT8_cv181x.cvimodel --verify-md5 --hexdump
 
 """
 
@@ -16,6 +17,7 @@ import struct
 import sys
 import os
 import argparse
+import hashlib
 from typing import Optional
 
 class CVIModelHeader:
@@ -34,7 +36,7 @@ class CVIModelHeader:
         unpacked = struct.unpack(self.FORMAT, data[:self.SIZE])
         
         self.magic = unpacked[0].decode('ascii', errors='ignore').rstrip('\x00')
-        self.body_size = unpacked[1]
+        self.body_size = unpacked[1]    # not the byte size, but the number of parameters of the model
         self.major = unpacked[2]
         self.minor = unpacked[3]
         self.md5 = unpacked[4].hex() if unpacked[4] else "00000000000000000000000000000000"
@@ -62,6 +64,12 @@ class CVIModelHeader:
         print(f"Header Size:     {self.SIZE} bytes")
         print(f"Total Size:      {self.total_size:,} bytes ({self.total_size / 1024:.1f} KB)")
         print(f"MD5 Checksum:    {self.md5}")
+        
+        # Show MD5 verification results if available
+        if hasattr(self, 'calculated_md5'):
+            print(f"Payload MD5:     {self.calculated_md5}")
+            print(f"MD5 Match:       {'✅ Yes' if self.md5_match else '❌ No'}")
+        
         print(f"Padding:         {self.padding} hex: {self.padding.hex()}")
         
         print("\n" + "=" * 60)
@@ -70,15 +78,44 @@ class CVIModelHeader:
         
         if self.is_valid():
             print("✅ Valid CVIModel file")
-            print(f"📊 Model payload: {self.body_size:,} bytes")
+            print(f"📊 Model parameters size: {self.body_size:,} bytes")
             print(f"🎯 Target chip: {self.chip}")
             print(f"📋 Version: {self.major}.{self.minor}")
+            
+            # Show MD5 verification status
+            if hasattr(self, 'md5_match'):
+                if self.md5_match:
+                    print("🔐 MD5 verification: ✅ PASSED")
+                else:
+                    print("🔐 MD5 verification: ❌ FAILED")
+                    print("⚠️  File integrity check failed!")
         else:
             print("❌ Invalid CVIModel file")
             print(f"🔍 Expected magic: 'CviModel'")
             print(f"🔍 Found magic: '{self.magic}'")
 
-def parse_cvimodel_file(filepath: str) -> Optional[CVIModelHeader]:
+def calculate_payload_md5(filepath: str, header_size: int, payload_size: int) -> str:
+    """Calculate MD5 hash of the payload data only (excluding header)"""
+    hash_md5 = hashlib.md5()
+    try:
+        with open(filepath, "rb") as f:
+            # Skip the header
+            f.seek(header_size)
+            # Read only the payload data
+            remaining = payload_size
+            while remaining > 0:
+                chunk_size = min(4096, remaining)
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                hash_md5.update(chunk)
+                remaining -= len(chunk)
+        return hash_md5.hexdigest()
+    except Exception as e:
+        print(f"❌ Error calculating payload MD5: {e}")
+        return ""
+
+def parse_cvimodel_file(filepath: str, verify_md5: bool = False) -> Optional[CVIModelHeader]:
     """Parse CVIModel file and return header information"""
     try:
         if not os.path.exists(filepath):
@@ -100,14 +137,21 @@ def parse_cvimodel_file(filepath: str) -> Optional[CVIModelHeader]:
             
             header = CVIModelHeader(header_data)
             
-            # Verify file size matches expected size
-            if file_size != header.total_size:
-                print(f"⚠️  Warning: File size mismatch!")
-                print(f"   Expected: {header.total_size:,} bytes")
-                print(f"   Actual:   {file_size:,} bytes")
-                print(f"   Difference: {file_size - header.total_size:,} bytes")
+            # Calculate and compare MD5 if requested
+            if verify_md5:
+                print("🔍 Calculating payload MD5...")
+                calculated_md5 = calculate_payload_md5(filepath, CVIModelHeader.SIZE, header.body_size)
+                header.calculated_md5 = calculated_md5
+                header.md5_match = (header.md5.lower() == calculated_md5.lower())
+                
+                if header.md5_match:
+                    print("✅ MD5 checksums match!")
+                else:
+                    print("❌ MD5 checksums do NOT match!")
+                    print(f"   Header MD5:  {header.md5}")
+                    print(f"   Payload MD5: {calculated_md5}")
                 print()
-            
+                      
             return header
             
     except Exception as e:
@@ -140,6 +184,8 @@ Examples:
   python3 parse_cvimodel.py model.cvimodel
   python3 parse_cvimodel.py model.cvimodel --hexdump
   python3 parse_cvimodel.py model.cvimodel --hexdump 128
+  python3 parse_cvimodel.py model.cvimodel --verify-md5
+  python3 parse_cvimodel.py model.cvimodel --verify-md5 --hexdump
         """
     )
     
@@ -148,11 +194,13 @@ Examples:
                        help='Show hexdump of file header')
     parser.add_argument('--hexdump-bytes', type=int, default=64,
                        help='Number of bytes to show in hexdump (default: 64)')
+    parser.add_argument('--verify-md5', action='store_true',
+                       help='Calculate and verify MD5 checksum of payload data against header')
     
     args = parser.parse_args()
     
     # Parse the CVIModel file
-    header = parse_cvimodel_file(args.file)
+    header = parse_cvimodel_file(args.file, verify_md5=args.verify_md5)
     
     if header:
         header.print_info()
@@ -174,11 +222,6 @@ if __name__ == "__main__":
 📁 File: generated/data/weight.bin
 📏 File size: 551,576 bytes (538.6 KB)
 
-⚠️  Warning: File size mismatch!
-   Expected: 12,088 bytes
-   Actual:   551,576 bytes
-   Difference: 539,488 bytes
-
 ============================================================
 CVIModel Header Information
 ============================================================
@@ -196,7 +239,7 @@ Padding:         4376
 File Analysis
 ============================================================
 ✅ Valid CVIModel file
-📊 Model payload: 12,040 bytes
+📊 Model parameters: 12,040
 🎯 Target chip: cv181x
 📋 Version: 1.4
 

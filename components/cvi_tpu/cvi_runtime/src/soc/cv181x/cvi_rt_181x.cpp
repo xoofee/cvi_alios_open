@@ -3,12 +3,21 @@
 std::unique_ptr<CviRTSoc> cvi_chip(new CviRT181x());
 
 CviRT181x::CviRT181x() {
+    printf("CviRT181x constructor start\n");   // the uart not initialized yet, so we cannot see the print
     chip_name_    = "cv181x";
     submit_magic_ = 0x18225678;
     cvi_device    = std::move(std::unique_ptr<CviDeviceMem>(new Cvi181xDeviceMem()));
+
+    printf("CviRT181x constructor done\n");     // the uart not initialized yet, so we cannot see the print
 }
 
 CviRT181x::~CviRT181x() {}
+
+CVI_RC CviRT181x::Init(CVI_RT_HANDLE *rt_handle) {
+    printf("CviRT181x::Init start\n");
+
+    return CviRTSoc::Init(rt_handle);
+}
 
 CVI_RT_KHANDLE CviRT181x::GetKHandleBK(CVI_RT_HANDLE rt_handle) {
     bmctx_t ctx = (bmctx_t)rt_handle;

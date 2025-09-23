@@ -16,4 +16,6 @@ public:
                        CVI_RT_MEM *cmdbuf_mem) override;
   virtual CVI_RC RunCmdbufTee(CVI_RT_HANDLE rt_handle, CVI_RT_MEM cmdbuf_mem,
                               CVI_RT_ARRAYBASE *p_array_base);
+
+  virtual CVI_RC Init(CVI_RT_HANDLE *rt_handle) override;
 };

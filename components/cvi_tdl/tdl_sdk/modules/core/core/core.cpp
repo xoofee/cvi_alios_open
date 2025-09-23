@@ -151,99 +151,267 @@ int Core::modelOpen(const char *filepath) {
 }
 
 int Core::modelOpen(const int8_t *buf, uint32_t size) {
-  if (!mp_mi) {
-    LOGE("config not set\n");
-    return CVI_TDL_ERR_OPEN_MODEL;
+  // ===== DEBUG: Core::modelOpen Entry =====
+  LOGI("=== Core::modelOpen DEBUG START ===");
+  LOGI("DEBUG: Function Entry - buf: %p, size: %u bytes (%.2f KB)", 
+       buf, size, size / 1024.0f);
+  
+  // ===== DEBUG: Buffer Analysis =====
+  if (buf != nullptr && size >= 16) {
+    LOGI("DEBUG: Buffer analysis:");
+    LOGI("  - First 16 bytes (hex): %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+         buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
+         buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]);
+    LOGI("  - First 16 bytes (ascii): %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c",
+         (buf[0] >= 32 && buf[0] <= 126) ? buf[0] : '.',
+         (buf[1] >= 32 && buf[1] <= 126) ? buf[1] : '.',
+         (buf[2] >= 32 && buf[2] <= 126) ? buf[2] : '.',
+         (buf[3] >= 32 && buf[3] <= 126) ? buf[3] : '.',
+         (buf[4] >= 32 && buf[4] <= 126) ? buf[4] : '.',
+         (buf[5] >= 32 && buf[5] <= 126) ? buf[5] : '.',
+         (buf[6] >= 32 && buf[6] <= 126) ? buf[6] : '.',
+         (buf[7] >= 32 && buf[7] <= 126) ? buf[7] : '.',
+         (buf[8] >= 32 && buf[8] <= 126) ? buf[8] : '.',
+         (buf[9] >= 32 && buf[9] <= 126) ? buf[9] : '.',
+         (buf[10] >= 32 && buf[10] <= 126) ? buf[10] : '.',
+         (buf[11] >= 32 && buf[11] <= 126) ? buf[11] : '.',
+         (buf[12] >= 32 && buf[12] <= 126) ? buf[12] : '.',
+         (buf[13] >= 32 && buf[13] <= 126) ? buf[13] : '.',
+         (buf[14] >= 32 && buf[14] <= 126) ? buf[14] : '.',
+         (buf[15] >= 32 && buf[15] <= 126) ? buf[15] : '.');
+  } else {
+    LOGE("DEBUG: Invalid buffer - buf: %p, size: %u", buf, size);
   }
 
+  // ===== DEBUG: Model Info Check =====
+  LOGI("DEBUG: Checking model info...");
+  if (!mp_mi) {
+    LOGE("DEBUG: mp_mi is NULL - config not set");
+    LOGE("config not set\n");
+    LOGI("=== Core::modelOpen DEBUG END (NO_CONFIG) ===");
+    return CVI_TDL_ERR_OPEN_MODEL;
+  }
+  // LOGI("DEBUG: mp_mi: %p", mp_mi);
+  LOGI("DEBUG: mp_mi->handle: %p 0 is good. non zero is bad", mp_mi->handle);
+
   if (mp_mi->handle != nullptr) {
+    LOGE("DEBUG: Model handle already exists - cannot open from buffer");
     LOGE("failed to open model from buffer: %d \n", (int)*buf);
+    LOGI("=== Core::modelOpen DEBUG END (HANDLE_EXISTS) ===");
     return CVI_TDL_FAILURE;
   }
 
-  CLOSE_MODEL_IF_TPU_FAILED(CVI_NN_RegisterModelFromBuffer(buf, size, &mp_mi->handle),
-                            "CVI_NN_RegisterModelFromBuffer failed");
+  // ===== DEBUG: Model Registration =====
+  LOGI("DEBUG: Calling CVI_NN_RegisterModelFromBuffer...");
+  LOGI("DEBUG: Parameters - buf: %p, size: %u, handle: %p", buf, size, &mp_mi->handle);
+  
+  int ret = CVI_NN_RegisterModelFromBuffer(buf, size, &mp_mi->handle);
+  LOGI("DEBUG: CVI_NN_RegisterModelFromBuffer returned: %d", ret);
+  
+  if (ret != CVI_SUCCESS) {
+    LOGE("DEBUG: CVI_NN_RegisterModelFromBuffer failed with code: %d", ret);
+    LOGE("CVI_NN_RegisterModelFromBuffer failed");
+    LOGI("=== Core::modelOpen DEBUG END (REGISTER_FAILED) ===");
+    return CVI_TDL_ERR_OPEN_MODEL;
+  }
+  
+  LOGI("DEBUG: Model registered successfully - handle: %p", mp_mi->handle);
 
+  // ===== DEBUG: Model Configuration =====
+  LOGI("DEBUG: Setting model configuration...");
+  LOGI("DEBUG: debug_mode: %d", mp_mi->conf.debug_mode);
   CVI_NN_SetConfig(mp_mi->handle, OPTION_OUTPUT_ALL_TENSORS,
                    static_cast<int>(mp_mi->conf.debug_mode));
+  LOGI("DEBUG: Model configuration set");
 
-  CLOSE_MODEL_IF_TPU_FAILED(
-      CVI_NN_GetInputOutputTensors(mp_mi->handle, &mp_mi->in.tensors, &mp_mi->in.num,
-                                   &mp_mi->out.tensors, &mp_mi->out.num),
-      "CVI_NN_GetINputsOutputs failed");
+  // ===== DEBUG: Input/Output Tensors =====
+  LOGI("DEBUG: Getting input/output tensors...");
+  LOGI("DEBUG: Before - in.tensors: %p, in.num: %d, out.tensors: %p, out.num: %d", 
+       mp_mi->in.tensors, mp_mi->in.num, mp_mi->out.tensors, mp_mi->out.num);
+  
+  ret = CVI_NN_GetInputOutputTensors(mp_mi->handle, &mp_mi->in.tensors, &mp_mi->in.num,
+                                     &mp_mi->out.tensors, &mp_mi->out.num);
+  LOGI("DEBUG: CVI_NN_GetInputOutputTensors returned: %d", ret);
+  
+  if (ret != CVI_SUCCESS) {
+    LOGE("DEBUG: CVI_NN_GetInputOutputTensors failed with code: %d", ret);
+    LOGE("CVI_NN_GetINputsOutputs failed");
+    LOGI("=== Core::modelOpen DEBUG END (GET_TENSORS_FAILED) ===");
+    return CVI_TDL_ERR_OPEN_MODEL;
+  }
+  
+  LOGI("DEBUG: After - in.tensors: %p, in.num: %d, out.tensors: %p, out.num: %d", 
+       mp_mi->in.tensors, mp_mi->in.num, mp_mi->out.tensors, mp_mi->out.num);
 
+  // ===== DEBUG: Tensor Info Setup =====
+  LOGI("DEBUG: Setting up tensor info...");
   setupTensorInfo(mp_mi->in.tensors, mp_mi->in.num, &m_input_tensor_info);
   setupTensorInfo(mp_mi->out.tensors, mp_mi->out.num, &m_output_tensor_info);
+  LOGI("DEBUG: Tensor info setup completed");
 
-  CVI_TENSOR *input =
-      CVI_NN_GetTensorByName(CVI_NN_DEFAULT_TENSOR, mp_mi->in.tensors, mp_mi->in.num);
-  // Assigning default values.
-  bool use_quantize_scale;
+  // ===== DEBUG: Input Tensor Analysis =====
+  LOGI("DEBUG: Analyzing input tensors...");
+  CVI_TENSOR *input = CVI_NN_GetTensorByName(CVI_NN_DEFAULT_TENSOR, mp_mi->in.tensors, mp_mi->in.num);
+  LOGI("DEBUG: Default input tensor: %p", input);
+  
+  if (input != nullptr) {
+    LOGI("DEBUG: Input tensor shape: [%d, %d, %d, %d]", 
+         input->shape.dim[0], input->shape.dim[1], input->shape.dim[2], input->shape.dim[3]);
+    // LOGI("DEBUG: Input tensor data type: %d", input->dtype);
+  }
+
+  // ===== DEBUG: Quantization Analysis =====
+  LOGI("DEBUG: Analyzing quantization...");
+  bool use_quantize_scale = false;
+  bool aligned_input = true;
+  
   for (uint32_t i = 0; i < (uint32_t)mp_mi->in.num; i++) {
+    LOGI("DEBUG: Processing input tensor %u...", i);
     CVI_TENSOR *tensor = mp_mi->in.tensors + i;
+    LOGI("DEBUG: Tensor %u: %p, shape: [%d, %d, %d, %d]", 
+         i, tensor, tensor->shape.dim[0], tensor->shape.dim[1], 
+         tensor->shape.dim[2], tensor->shape.dim[3]);
+    
     float quant_scale = CVI_NN_TensorQuantScale(tensor);
+    LOGI("DEBUG: Tensor %u quant_scale: %f", i, quant_scale);
+    
     use_quantize_scale = quant_scale != 0 || quant_scale != 1.0;
+    LOGI("DEBUG: Tensor %u use_quantize_scale: %s", i, use_quantize_scale ? "true" : "false");
 
     if (((mp_mi->in.tensors[i].shape.dim[3] % 64) != 0)) {
+      LOGI("DEBUG: Tensor %u dim[3] (%d) not aligned to 64", i, mp_mi->in.tensors[i].shape.dim[3]);
       aligned_input = false;
     }
   }
+  
+  LOGI("DEBUG: Final use_quantize_scale: %s", use_quantize_scale ? "true" : "false");
+  LOGI("DEBUG: Final aligned_input: %s", aligned_input ? "true" : "false");
 
-  if (CVI_MEM_SYSTEM == getInputMemType()) {
+  // ===== DEBUG: Memory Type Check =====
+  LOGI("DEBUG: Checking input memory type...");
+  int mem_type = getInputMemType();
+  LOGI("DEBUG: Input memory type: %d", mem_type);
+  
+  if (CVI_MEM_SYSTEM == mem_type) {
+    LOGI("DEBUG: System memory detected - disabling aligned input");
     aligned_input = false;
   }
 
+  // ===== DEBUG: Tensor Physical Address Setup =====
   if (true == aligned_input) {
-    for (int32_t i = 0; i < mp_mi->in.num; i++)
-      CLOSE_MODEL_IF_TPU_FAILED(CVI_NN_SetTensorPhysicalAddr(&mp_mi->in.tensors[i], (uint64_t)0),
-                                "CVI_NN_SetTensorPhysicalAddr failed");
+    LOGI("DEBUG: Setting up aligned input tensor physical addresses...");
+    for (int32_t i = 0; i < mp_mi->in.num; i++) {
+      LOGI("DEBUG: Setting physical address for tensor %d...", i);
+      ret = CVI_NN_SetTensorPhysicalAddr(&mp_mi->in.tensors[i], (uint64_t)0);
+      LOGI("DEBUG: CVI_NN_SetTensorPhysicalAddr returned: %d", ret);
+      
+      if (ret != CVI_SUCCESS) {
+        LOGE("DEBUG: CVI_NN_SetTensorPhysicalAddr failed for tensor %d with code: %d", i, ret);
+        LOGE("CVI_NN_SetTensorPhysicalAddr failed");
+        LOGI("=== Core::modelOpen DEBUG END (SET_PHYSICAL_ADDR_FAILED) ===");
+        return CVI_TDL_ERR_OPEN_MODEL;
+      }
+    }
+    LOGI("DEBUG: Aligned input tensor setup completed");
     LOGI("parse model with aligned input tensor\n");
+  } else {
+    LOGI("DEBUG: Skipping aligned input tensor setup");
   }
 
-  CLOSE_MODEL_IF_FAILED(onModelOpened(), "return failed in onModelOpened");
+  // ===== DEBUG: Model Opened Callback =====
+  LOGI("DEBUG: Calling onModelOpened()...");
+  ret = onModelOpened();
+  LOGI("DEBUG: onModelOpened() returned: %d", ret);
+  
+  if (ret != CVI_TDL_SUCCESS) {
+    LOGE("DEBUG: onModelOpened() failed with code: %d", ret);
+    LOGE("return failed in onModelOpened");
+    LOGI("=== Core::modelOpen DEBUG END (ON_MODEL_OPENED_FAILED) ===");
+    return CVI_TDL_ERR_OPEN_MODEL;
+  }
+  LOGI("DEBUG: onModelOpened() completed successfully");
 
+  // ===== DEBUG: VPSS Configuration =====
+  LOGI("DEBUG: Setting up VPSS configuration...");
   m_vpss_config.clear();
+  LOGI("DEBUG: VPSS config cleared, processing %d input tensors", mp_mi->in.num);
+  
   for (uint32_t i = 0; i < (uint32_t)mp_mi->in.num; i++) {
+    LOGI("DEBUG: Processing VPSS config for input %u...", i);
+    
     if (use_quantize_scale) {
+      LOGI("DEBUG: Applying quantization scale for input %u...", i);
       CVI_TENSOR *tensor = mp_mi->in.tensors + i;
       float quant_scale = CVI_NN_TensorQuantScale(tensor);
+      LOGI("DEBUG: Input %u quant_scale: %f", i, quant_scale);
+      
       for (uint32_t j = 0; j < 3; j++) {
+        float old_factor = m_preprocess_param[i].factor[j];
+        float old_mean = m_preprocess_param[i].mean[j];
         m_preprocess_param[i].factor[j] *= quant_scale;
         m_preprocess_param[i].mean[j] *= quant_scale;
+        LOGI("DEBUG: Input %u channel %u: factor %f->%f, mean %f->%f", 
+             i, j, old_factor, m_preprocess_param[i].factor[j], 
+             old_mean, m_preprocess_param[i].mean[j]);
       }
+      
       // FIXME: Behavior will changed in 1822.
       float factor_limit = 8191.f / 8192;
+      LOGI("DEBUG: Factor limit: %f", factor_limit);
       for (uint32_t j = 0; j < 3; j++) {
         if (m_preprocess_param[i].factor[j] > factor_limit) {
+          LOGW("DEBUG: Input %u channel %u factor %f exceeds limit %f", 
+               i, j, m_preprocess_param[i].factor[j], factor_limit);
           LOGW("factor[%d] is bigger than limit: %f\n", i, m_preprocess_param[i].factor[j]);
           m_preprocess_param[i].factor[j] = factor_limit;
         }
       }
     }
+    
     VPSSConfig vcfg;
     int32_t width, height;
+    
     // FIXME: Future support for nhwc input. Currently disabled.
     if (false) {
+      LOGI("DEBUG: Using NHWC format (disabled)");
       width = input->shape.dim[2];
       height = input->shape.dim[1];
       vcfg.frame_type = CVI_FRAME_PACKAGE;
     } else {
+      LOGI("DEBUG: Using NCHW format");
       CVI_TENSOR *input = &(mp_mi->in.tensors[i]);
       width = input->shape.dim[3];
       height = input->shape.dim[2];
       vcfg.frame_type = CVI_FRAME_PLANAR;
+      LOGI("DEBUG: Input %u dimensions: width=%d, height=%d", i, width, height);
     }
+    
     vcfg.rescale_type = m_preprocess_param[i].rescale_type;
     vcfg.crop_attr.bEnable = m_preprocess_param[i].use_crop;
+    LOGI("DEBUG: Input %u rescale_type: %d, crop_enabled: %s", 
+         i, vcfg.rescale_type, vcfg.crop_attr.bEnable ? "true" : "false");
+    
     bool pad_reverse = false;
+    LOGI("DEBUG: Calling VPSS_CHN_SQ_HELPER for input %u...", i);
     VPSS_CHN_SQ_HELPER(&vcfg.chn_attr, width, height, m_preprocess_param[i].format,
                        m_preprocess_param[i].factor, m_preprocess_param[i].mean, pad_reverse);
+    LOGI("DEBUG: VPSS_CHN_SQ_HELPER completed for input %u", i);
+    
     if (!m_preprocess_param[i].keep_aspect_ratio) {
+      LOGI("DEBUG: Disabling aspect ratio for input %u", i);
       vcfg.chn_attr.stAspectRatio.enMode = ASPECT_RATIO_NONE;
     }
+    
     vcfg.chn_coeff = m_preprocess_param[i].resize_method;
+    LOGI("DEBUG: Input %u resize_method: %d", i, vcfg.chn_coeff);
+    
     m_vpss_config.emplace_back(vcfg);
+    LOGI("DEBUG: VPSS config added for input %u", i);
   }
+  
+  LOGI("DEBUG: VPSS configuration completed - total configs: %zu", m_vpss_config.size());
+  LOGI("DEBUG: Model opened successfully!");
+  LOGI("=== Core::modelOpen DEBUG END (SUCCESS) ===");
   return CVI_TDL_SUCCESS;
 }
 

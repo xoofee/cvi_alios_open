@@ -57,68 +57,258 @@ static void setChipTypeForCmodel(const char *modelFile, const int8_t *buf, size_
   std::string filename = modelFile != nullptr ? modelFile : "";
   std::string chip_target = CviModel::getChipType(filename, buf, size);
   setenv("SET_CHIP_NAME", chip_target.c_str(), 1);
-  TPU_LOG_ERROR("setenv:%s\n", chip_target.c_str());
+  printf("error: setenv:%s\n", chip_target.c_str());
 #endif
 }
 
 CVI_RC CVI_NN_RegisterModel(const char *modelFile, CVI_MODEL_HANDLE *model) {
+  // ===== DEBUG: CVI_NN_RegisterModel Entry =====
+  TPU_LOG_INFO("=== CVI_NN_RegisterModel DEBUG START ===");
+  TPU_LOG_INFO("DEBUG: Function Entry - modelFile: '%s', model: %p", 
+               modelFile ? modelFile : "NULL", model);
+  
+  // ===== DEBUG: Model File Validation =====
+  if (modelFile != nullptr) {
+    TPU_LOG_INFO("DEBUG: Model file path: '%s'", modelFile);
+    TPU_LOG_INFO("DEBUG: Model file length: %zu", strlen(modelFile));
+  } else {
+    printf("error: Model file path is NULL");
+    printf("error: === CVI_NN_RegisterModel DEBUG END (NULL_FILE) ===");
+    return CVI_RC_FAILURE;
+  }
+
+  // ===== DEBUG: Model Handle Initialization =====
+  TPU_LOG_INFO("DEBUG: Initializing model handle to NULL");
   *model = NULL;
+  TPU_LOG_INFO("DEBUG: Model handle initialized: %p", *model);
+
+  // ===== DEBUG: Mutex Lock =====
+  TPU_LOG_INFO("DEBUG: Acquiring global context mutex...");
   const std::lock_guard<std::mutex> lock(g_ctx_mutex);
+  TPU_LOG_INFO("DEBUG: Global context mutex acquired");
+
+  // ===== DEBUG: Global Context Check =====
+  TPU_LOG_INFO("DEBUG: Checking global context...");
+  TPU_LOG_INFO("DEBUG: g_ctx: %p", g_ctx);
+  TPU_LOG_INFO("DEBUG: g_model_count: %u", g_model_count);
+  TPU_LOG_INFO("DEBUG: g_ctx_ref_count: %u", g_ctx_ref_count);
 
   if (!g_ctx) {
+    TPU_LOG_INFO("DEBUG: Global context is NULL - initializing...");
+    TPU_LOG_INFO("DEBUG: Calling setChipTypeForCmodel with file...");
+    TPU_LOG_INFO("DEBUG: Parameters - modelFile: '%s', buf: nullptr, size: 0", modelFile);
     setChipTypeForCmodel(modelFile, nullptr, 0);
-    CVI_RT_Init(&g_ctx);
+    TPU_LOG_INFO("DEBUG: setChipTypeForCmodel completed");
+    
+    TPU_LOG_INFO("DEBUG: Calling CVI_RT_Init...");
+    CVI_RC init_ret = CVI_RT_Init(&g_ctx);
+    TPU_LOG_INFO("DEBUG: CVI_RT_Init returned: %d", init_ret);
+    TPU_LOG_INFO("DEBUG: g_ctx after init: %p", g_ctx);
+    
+    if (init_ret != CVI_RC_SUCCESS) {
+      printf("error: CVI_RT_Init failed with code: %d", init_ret);
+      printf("error: === CVI_NN_RegisterModel DEBUG END (RT_INIT_FAILED) ===");
+      return init_ret;
+    }
+  } else {
+    TPU_LOG_INFO("DEBUG: Global context already exists");
   }
 
+  // ===== DEBUG: CviModel Creation =====
+  TPU_LOG_INFO("DEBUG: Creating CviModel instance...");
+  TPU_LOG_INFO("DEBUG: Parameters - g_ctx: %p, g_model_count: %u", g_ctx, g_model_count);
+  
   auto _model = new CviModel(g_ctx, g_model_count++);
+  TPU_LOG_INFO("DEBUG: CviModel created: %p", _model);
+  TPU_LOG_INFO("DEBUG: Updated g_model_count: %u", g_model_count);
+  
   if (!_model) {
-    TPU_LOG_ERROR("failed to create a CviModel Instance\n");
+    printf("error: CviModel creation failed - _model is NULL");
+    printf("error: failed to create a CviModel Instance\n");
+    printf("error: === CVI_NN_RegisterModel DEBUG END (MODEL_CREATE_FAILED) ===");
     return CVI_RC_FAILURE;
   }
+  TPU_LOG_INFO("DEBUG: CviModel created successfully");
+
+  // ===== DEBUG: Model Acquisition =====
+  TPU_LOG_INFO("DEBUG: Calling _model->acquire with file...");
+  TPU_LOG_INFO("DEBUG: Parameters - modelFile: '%s'", modelFile);
+  
   CVI_RC ret = _model->acquire(modelFile);
+  TPU_LOG_INFO("DEBUG: _model->acquire returned: %d", ret);
+  
   if (ret != CVI_RC_SUCCESS) {
+    printf("error: _model->acquire failed with code: %d", ret);
+    TPU_LOG_INFO("DEBUG: Releasing _model due to acquire failure...");
     _model->release();
+    printf("error: === CVI_NN_RegisterModel DEBUG END (ACQUIRE_FAILED) ===");
     return ret;
   }
+  TPU_LOG_INFO("DEBUG: Model acquisition successful");
+
+  // ===== DEBUG: ModelInstance Creation =====
+  TPU_LOG_INFO("DEBUG: Creating ModelInstance...");
+  TPU_LOG_INFO("DEBUG: Parameters - _model: %p", _model);
+  
   auto instance = new ModelInstance(_model);
+  TPU_LOG_INFO("DEBUG: ModelInstance created: %p", instance);
+  
   if (!instance) {
+    printf("error: ModelInstance creation failed - instance is NULL");
+    TPU_LOG_INFO("DEBUG: Releasing _model due to instance creation failure...");
     _model->release();
+    printf("error: === CVI_NN_RegisterModel DEBUG END (INSTANCE_CREATE_FAILED) ===");
     return CVI_RC_FAILURE;
   }
+  TPU_LOG_INFO("DEBUG: ModelInstance created successfully");
 
+  // ===== DEBUG: Final Setup =====
+  TPU_LOG_INFO("DEBUG: Updating global reference count...");
+  TPU_LOG_INFO("DEBUG: g_ctx_ref_count before: %u", g_ctx_ref_count);
   g_ctx_ref_count++;
+  TPU_LOG_INFO("DEBUG: g_ctx_ref_count after: %u", g_ctx_ref_count);
+  
+  TPU_LOG_INFO("DEBUG: Setting model handle...");
   *model = (void *)instance;
+  TPU_LOG_INFO("DEBUG: Model handle set: %p", *model);
+  
+  TPU_LOG_INFO("DEBUG: Model registration completed successfully!");
+  TPU_LOG_INFO("=== CVI_NN_RegisterModel DEBUG END (SUCCESS) ===");
   return CVI_RC_SUCCESS;
 }
 
-CVI_RC CVI_NN_RegisterModelFromBuffer(const int8_t *buf, uint32_t size,
-                                      CVI_MODEL_HANDLE *model) {
+CVI_RC CVI_NN_RegisterModelFromBuffer(const int8_t *buf, uint32_t size, CVI_MODEL_HANDLE *model) {
+
+  printf("2 in CVI_NN_RegisterModelFromBuffer \n");
+
+  // ===== DEBUG: CVI_NN_RegisterModelFromBuffer Entry =====
+  printf("=== CVI_NN_RegisterModelFromBuffer DEBUG START ===\n");
+  printf("DEBUG: Function Entry - buf: %p, size: %u bytes (%.2f KB), model: %p\n", 
+               buf, size, size / 1024.0f, model);
+  
+  // ===== DEBUG: Buffer Analysis =====
+  if (buf != nullptr && size >= 16) {
+    printf("DEBUG: Buffer analysis:\n");
+    printf("  - First 16 bytes (hex): %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+                 buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
+                 buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]);
+    printf("  - First 16 bytes (ascii): %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
+                 (buf[0] >= 32 && buf[0] <= 126) ? buf[0] : '.',
+                 (buf[1] >= 32 && buf[1] <= 126) ? buf[1] : '.',
+                 (buf[2] >= 32 && buf[2] <= 126) ? buf[2] : '.',
+                 (buf[3] >= 32 && buf[3] <= 126) ? buf[3] : '.',
+                 (buf[4] >= 32 && buf[4] <= 126) ? buf[4] : '.',
+                 (buf[5] >= 32 && buf[5] <= 126) ? buf[5] : '.',
+                 (buf[6] >= 32 && buf[6] <= 126) ? buf[6] : '.',
+                 (buf[7] >= 32 && buf[7] <= 126) ? buf[7] : '.',
+                 (buf[8] >= 32 && buf[8] <= 126) ? buf[8] : '.',
+                 (buf[9] >= 32 && buf[9] <= 126) ? buf[9] : '.',
+                 (buf[10] >= 32 && buf[10] <= 126) ? buf[10] : '.',
+                 (buf[11] >= 32 && buf[11] <= 126) ? buf[11] : '.',
+                 (buf[12] >= 32 && buf[12] <= 126) ? buf[12] : '.',
+                 (buf[13] >= 32 && buf[13] <= 126) ? buf[13] : '.',
+                 (buf[14] >= 32 && buf[14] <= 126) ? buf[14] : '.',
+                 (buf[15] >= 32 && buf[15] <= 126) ? buf[15] : '.');
+  } else {
+    printf("error: Invalid buffer - buf: %p, size: %u\n", buf, size);
+  }
+
+  // ===== DEBUG: Model Handle Initialization =====
+  printf("DEBUG: Initializing model handle to NULL\n");
   *model = NULL;
+  printf("DEBUG: Model handle initialized: %p\n", *model);
+
+  // ===== DEBUG: Mutex Lock =====
+  printf("DEBUG: Acquiring global context mutex...\n");
   const std::lock_guard<std::mutex> lock(g_ctx_mutex);
+  printf("DEBUG: Global context mutex acquired\n");
+
+  // ===== DEBUG: Global Context Check =====
+  printf("DEBUG: Checking global context...\n");
+  printf("DEBUG: g_ctx: %p\n", g_ctx);
+  printf("DEBUG: g_model_count: %u\n", g_model_count);
+  printf("DEBUG: g_ctx_ref_count: %u\n", g_ctx_ref_count);
 
   if (!g_ctx) {
+    printf("DEBUG: Global context is NULL - initializing...\n");
+    printf("DEBUG: Calling setChipTypeForCmodel...\n");
     setChipTypeForCmodel(nullptr, buf, size);
-    CVI_RT_Init(&g_ctx);
+    printf("DEBUG: setChipTypeForCmodel completed\n");
+    
+    printf("DEBUG: Calling CVI_RT_Init...\n");
+    CVI_RC init_ret = CVI_RT_Init(&g_ctx);
+    printf("DEBUG: CVI_RT_Init returned: %d\n", init_ret);
+    printf("DEBUG: g_ctx after init: %p\n", g_ctx);
+    
+    if (init_ret != CVI_RC_SUCCESS) {
+      printf("error: CVI_RT_Init failed with code: %d\n", init_ret);
+      printf("error: === CVI_NN_RegisterModelFromBuffer DEBUG END (RT_INIT_FAILED) ===\n");
+      return init_ret;
+    }
+  } else {
+    printf("DEBUG: Global context already exists\n");
   }
 
+  // ===== DEBUG: CviModel Creation =====
+  printf("DEBUG: Creating CviModel instance...\n");
+  printf("DEBUG: Parameters - g_ctx: %p, g_model_count: %u\n", g_ctx, g_model_count);
+  
   auto _model = new CviModel(g_ctx, g_model_count++);
+  printf("DEBUG: CviModel created: %p\n", _model);
+  printf("DEBUG: Updated g_model_count: %u\n", g_model_count);
+  
   if (!_model) {
-    TPU_LOG_ERROR("failed to create a CviModel Instance\n");
+    printf("error: CviModel creation failed - _model is NULL\n");
+    printf("error: failed to create a CviModel Instance\n");
+    printf("error: === CVI_NN_RegisterModelFromBuffer DEBUG END (MODEL_CREATE_FAILED) ===\n");
     return CVI_RC_FAILURE;
   }
+  printf("DEBUG: CviModel created successfully\n");
+
+  // ===== DEBUG: Model Acquisition =====
+  printf("DEBUG: Calling _model->acquire...\n");
+  printf("DEBUG: Parameters - buf: %p, size: %u\n", buf, size);
+  
   CVI_RC ret = _model->acquire(buf, size);
+  printf("DEBUG: _model->acquire returned: %d\n", ret);
+  
   if (ret != CVI_RC_SUCCESS) {
+    printf("error: _model->acquire failed with code: %d\n", ret);
+    printf("DEBUG: Releasing _model due to acquire failure...\n");
     _model->release();
+    printf("error: === CVI_NN_RegisterModelFromBuffer DEBUG END (ACQUIRE_FAILED) ===\n");
     return ret;
   }
+  printf("DEBUG: Model acquisition successful\n");
+
+  // ===== DEBUG: ModelInstance Creation =====
+  printf("DEBUG: Creating ModelInstance...\n");
+  printf("DEBUG: Parameters - _model: %p\n", _model);
+  
   auto instance = new ModelInstance(_model);
+  printf("DEBUG: ModelInstance created: %p\n", instance);
+  
   if (!instance) {
+    printf("error: ModelInstance creation failed - instance is NULL\n");
+    printf("DEBUG: Releasing _model due to instance creation failure...\n");
     _model->release();
+    printf("error: === CVI_NN_RegisterModelFromBuffer DEBUG END (INSTANCE_CREATE_FAILED) ===\n");
     return CVI_RC_FAILURE;
   }
+  printf("DEBUG: ModelInstance created successfully\n");
 
+  // ===== DEBUG: Final Setup =====
+  printf("DEBUG: Updating global reference count...\n");
+  printf("DEBUG: g_ctx_ref_count before: %u\n", g_ctx_ref_count);
   g_ctx_ref_count++;
+  printf("DEBUG: g_ctx_ref_count after: %u\n", g_ctx_ref_count);
+  
+  printf("DEBUG: Setting model handle...\n");
   *model = (void *)instance;
+  printf("DEBUG: Model handle set: %p\n", *model);
+  
+  printf("DEBUG: Model registration completed successfully!\n");
+  printf("=== CVI_NN_RegisterModelFromBuffer DEBUG END (SUCCESS) ===\n");
   return CVI_RC_SUCCESS;
 }
 
@@ -174,7 +364,7 @@ CVI_RC CVI_NN_SetConfig(CVI_MODEL_HANDLE model, CVI_CONFIG_OPTION option, ...) {
       TPU_LOG_WARNING("deprecated option:%d\n", (int)option);
       break;
     default:
-      TPU_LOG_ERROR("unsupported option:%d\n", (int)option);
+      printf("error: unsupported option:%d\n", (int)option);
       assert(0);
   }
   va_end(valist);
@@ -192,7 +382,7 @@ CVI_RC CVI_NN_GetInputOutputTensors(CVI_MODEL_HANDLE model, CVI_TENSOR **inputs,
         instance->output_all_tensors_for_debug,
         instance->skip_preprocess);
     if (ret != CVI_RC_SUCCESS) {
-      TPU_LOG_ERROR("ret:%d\n", ret);
+      printf("error: ret:%d\n", ret);
       return ret;
     }
   }
@@ -295,7 +485,7 @@ void *CVI_NN_TensorPtr(CVI_TENSOR *tensor) {
   if (tensor->mem_type == CVI_MEM_SYSTEM) {
     return (void *)tensor->sys_mem;
   } else if (tensor->mem_type == CVI_MEM_DEVICE) {
-    // TPU_LOG_ERROR("Try to get mem ptr with device memory\n");
+    // printf("error: Try to get mem ptr with device memory\n");
     // return nullptr;
     auto program = static_cast<cvi::runtime::Program *>(tensor->owner);
     for (auto &input_tensor : program->input_tensors()) {
@@ -304,7 +494,7 @@ void *CVI_NN_TensorPtr(CVI_TENSOR *tensor) {
         }
     }
   } else {
-    TPU_LOG_ERROR("Try to get mem ptr with unknown type\n");
+    printf("error: Try to get mem ptr with unknown type\n");
     return nullptr;
   }
   return nullptr;
@@ -381,7 +571,7 @@ CVI_RC CVI_NN_SetTensorWithVideoFrame(
   // video_frame_info->type is CVI_FRAME_PLANAR on early sampes,
   // so don't check for now
   if (tensor->pixel_format != video_frame_info->type) {
-    TPU_LOG_ERROR("Frame format error! [need|%d] vs [input|%d]\n",
+    printf("error: Frame format error! [need|%d] vs [input|%d]\n",
                   tensor->pixel_format, video_frame_info->type);
     return CVI_RC_DATA_ERR;
   }
@@ -391,7 +581,7 @@ CVI_RC CVI_NN_SetTensorWithVideoFrame(
   if (tensor->shape.dim[1] != video_frame_info->shape.dim[1] ||
       tensor->shape.dim[2] != video_frame_info->shape.dim[2] ||
       tensor->shape.dim[3] != video_frame_info->shape.dim[3]) {
-      TPU_LOG_ERROR("Frame size error! [need|%d, %d, %d, %d] vs [input|%d, %d, %d, %d]\n",
+      printf("error: Frame size error! [need|%d, %d, %d, %d] vs [input|%d, %d, %d, %d]\n",
                     tensor->shape.dim[0], tensor->shape.dim[1], tensor->shape.dim[2], tensor->shape.dim[3],
                     video_frame_info->shape.dim[0], video_frame_info->shape.dim[1],
                     video_frame_info->shape.dim[2], video_frame_info->shape.dim[3]);
@@ -438,7 +628,7 @@ CVI_RC CVI_NN_SetTensorWithAlignedFrames(
   } else {
     // check pixel format
     if (pixel_format != tensor->pixel_format) {
-      TPU_LOG_ERROR("pixel_format is not correct, %d vs %d\n", tensor->pixel_format, pixel_format);
+      printf("error: pixel_format is not correct, %d vs %d\n", tensor->pixel_format, pixel_format);
       assert(0);
     }
     if (frame_num == 1 && tensor->shape.dim[0] == 1) {

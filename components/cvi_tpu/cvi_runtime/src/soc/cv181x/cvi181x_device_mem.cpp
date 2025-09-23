@@ -14,6 +14,7 @@ Cvi181xDeviceMem::~Cvi181xDeviceMem() {}
 
 bmerr_t Cvi181xDeviceMem::device_open(int index, bmdev_t *dev)
 {
+  printf("Cvi181xDeviceMem::device_open start\n");
   bm_device_t *pdev = new bm_device_t;
 
   BMDEV_LOCK_INIT(pdev);

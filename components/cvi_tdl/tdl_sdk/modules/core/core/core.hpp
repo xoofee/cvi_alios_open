@@ -204,7 +204,7 @@ class Core {
   bool aligned_input = true;
 
   // Cvimodel related
-  std::unique_ptr<CvimodelInfo> mp_mi;
+  std::unique_ptr<CvimodelInfo> mp_mi;  // model info
 #ifndef CONFIG_ALIOS
   bool raw = false;
 #endif

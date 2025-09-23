@@ -108,6 +108,30 @@ CVI_RC CviModel::parseModelHeader(BaseStream *stream, size_t &payload_sz, size_t
   if (!checkIfMatchTargetChipType(targetChipType)) {
     return CVI_RC_INVALID_ARG;
   }
+
+  // INSERT_YOUR_CODE
+  // PRINT ALL HEADER IN FO HERE
+  TPU_LOG_INFO("MODEL_HEADER info:");
+  TPU_LOG_INFO("  magic     : %.8s", header.magic);
+  TPU_LOG_INFO("  body_size : %u", header.body_size);
+  TPU_LOG_INFO("  major     : %d", header.major);
+  TPU_LOG_INFO("  minor     : %d", header.minor);
+  TPU_LOG_INFO("  md5       :"
+               " %02X %02X %02X %02X %02X %02X %02X %02X"
+               " %02X %02X %02X %02X %02X %02X %02X %02X",
+               (unsigned char)header.md5[0], (unsigned char)header.md5[1],
+               (unsigned char)header.md5[2], (unsigned char)header.md5[3],
+               (unsigned char)header.md5[4], (unsigned char)header.md5[5],
+               (unsigned char)header.md5[6], (unsigned char)header.md5[7],
+               (unsigned char)header.md5[8], (unsigned char)header.md5[9],
+               (unsigned char)header.md5[10], (unsigned char)header.md5[11],
+               (unsigned char)header.md5[12], (unsigned char)header.md5[13],
+               (unsigned char)header.md5[14], (unsigned char)header.md5[15]);
+  TPU_LOG_INFO("  chip      : %.16s", header.chip);
+  TPU_LOG_INFO("  padding   : %02X %02X",
+               (unsigned char)header.padding[0], (unsigned char)header.padding[1]);
+
+  
   // TODO, verify md5 here
   return CVI_RC_SUCCESS;
 }
@@ -306,7 +330,11 @@ void CviModel::createCpuWeightMap() {
   }
 }
 
+/// called by acquire
+/// parse the header and payload
 CVI_RC CviModel::parse(BaseStream *stream) {
+  TPU_LOG_INFO("CVI_RC CviModel::parse(BaseStream *stream) {\n");
+
   CVI_RC ret;
   size_t payload_size;
   size_t header_size;
@@ -401,6 +429,7 @@ std::string CviModel::getChipType(
   return std::string(header.chip);
 }
 
+/// wrapper for parse
 CVI_RC CviModel::acquire(const int8_t *buf, size_t size) {
   BaseStream *stream = new BufferStream(buf, size);
   CVI_RC ret = this->parse(stream);

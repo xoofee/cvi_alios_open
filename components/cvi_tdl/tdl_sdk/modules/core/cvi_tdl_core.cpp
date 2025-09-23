@@ -332,33 +332,74 @@ inline void __attribute__((always_inline)) removeCtx(cvitdl_context_t *ctx) {
 
 inline Core *__attribute__((always_inline))
 getInferenceInstance(const CVI_TDL_SUPPORTED_MODEL_E index, cvitdl_context_t *ctx) {
+  // ===== DEBUG: getInferenceInstance Entry =====
+  LOGI("=== getInferenceInstance DEBUG START ===");
+  LOGI("DEBUG: getInferenceInstance called with index: %d (%s)", index, CVI_TDL_GetModelName(index));
+  
   cvitdl_model_t &m_t = ctx->model_cont[index];
+  LOGI("DEBUG: Model container accessed - m_t.instance: %p", m_t.instance);
+  
   if (m_t.instance == nullptr) {
+    LOGI("DEBUG: Instance is null, creating new instance...");
+    
     // create custom instance here
     if (index == CVI_TDL_SUPPORTED_MODEL_SOUNDCLASSIFICATION) {
+      LOGI("DEBUG: Creating SOUNDCLASSIFICATION model instance");
       if (MODEL_CREATORS_AUD.find(index) == MODEL_CREATORS_AUD.end()) {
+        LOGE("DEBUG: Cannot find creator for %s in MODEL_CREATORS_AUD", CVI_TDL_GetModelName(index));
         LOGE("Cannot find creator for %s, Please register a creator for this model!\n",
              CVI_TDL_GetModelName(index));
+        LOGI("=== getInferenceInstance DEBUG END (NO_CREATOR_AUD) ===");
         return nullptr;
       }
       auto creator = MODEL_CREATORS_AUD[index];
+      LOGI("DEBUG: Creator found, calling creator()...");
       m_t.instance = creator();
+      LOGI("DEBUG: Creator called, m_t.instance: %p", m_t.instance);
     } else {
+      LOGI("DEBUG: Creating standard model instance");
       if (MODEL_CREATORS.find(index) == MODEL_CREATORS.end()) {
+        LOGE("DEBUG: Cannot find creator for %s in MODEL_CREATORS", CVI_TDL_GetModelName(index));
         LOGE("Cannot find creator for %s, Please register a creator for this model!\n",
              CVI_TDL_GetModelName(index));
+        LOGI("=== getInferenceInstance DEBUG END (NO_CREATOR) ===");
         return nullptr;
       }
 
       auto creator = MODEL_CREATORS[index];
+      LOGI("DEBUG: Creator found, preparing ModelParams...");
+      LOGI("DEBUG: vpss_thread: %u, vec_vpss_engine size: %zu", m_t.vpss_thread, ctx->vec_vpss_engine.size());
+      
+      if (m_t.vpss_thread >= ctx->vec_vpss_engine.size()) {
+        LOGE("DEBUG: Invalid vpss_thread %u, vec_vpss_engine size: %zu", m_t.vpss_thread, ctx->vec_vpss_engine.size());
+        LOGI("=== getInferenceInstance DEBUG END (INVALID_VPSS_THREAD) ===");
+        return nullptr;
+      }
+      
       ModelParams params = {.vpss_engine = ctx->vec_vpss_engine[m_t.vpss_thread],
                             .vpss_timeout_value = ctx->vpss_timeout_value};
+      LOGI("DEBUG: ModelParams created - vpss_engine: %p, timeout: %u", 
+           params.vpss_engine, params.vpss_timeout_value);
 
+      LOGI("DEBUG: Calling creator with params...");
       m_t.instance = creator(params);
-      m_t.instance->setVpssEngine(ctx->vec_vpss_engine[m_t.vpss_thread]);
-      m_t.instance->setVpssTimeout(ctx->vpss_timeout_value);
+      LOGI("DEBUG: Creator called, m_t.instance: %p", m_t.instance);
+      
+      if (m_t.instance != nullptr) {
+        LOGI("DEBUG: Setting VPSS engine and timeout...");
+        m_t.instance->setVpssEngine(ctx->vec_vpss_engine[m_t.vpss_thread]);
+        m_t.instance->setVpssTimeout(ctx->vpss_timeout_value);
+        LOGI("DEBUG: VPSS configuration completed");
+      } else {
+        LOGE("DEBUG: Creator returned null instance!");
+      }
     }
+  } else {
+    LOGI("DEBUG: Instance already exists, returning existing instance: %p", m_t.instance);
   }
+  
+  LOGI("DEBUG: Returning instance: %p", m_t.instance);
+  LOGI("=== getInferenceInstance DEBUG END ===");
   return m_t.instance;
 }
 
@@ -448,31 +489,197 @@ CVI_S32 CVI_TDL_OpenModel(cvitdl_handle_t handle, CVI_TDL_SUPPORTED_MODEL_E conf
 #ifndef CV186X
 CVI_S32 CVI_TDL_OpenModel_FromBuffer(cvitdl_handle_t handle, CVI_TDL_SUPPORTED_MODEL_E config,
                                      int8_t *buf, uint32_t size) {
-  cvitdl_context_t *ctx = static_cast<cvitdl_context_t *>(handle);
-  cvitdl_model_t &m_t = ctx->model_cont[config];
-  Core *instance = getInferenceInstance(config, ctx);
+  // ===== DEBUG: Function Entry =====
+  LOGI("=== CVI_TDL_OpenModel_FromBuffer DEBUG START ===");
+  LOGI("Function Entry - handle: %p, config: %d (%s), buf: %p, size: %u", 
+       handle, config, CVI_TDL_GetModelName(config), buf, size);
+  
+  // ===== DEBUG: Compilation Flags =====
+  LOGI("DEBUG: Compilation flags check:");
+#ifdef CV186X
+  LOGI("  - CV186X: DEFINED");
+#else
+  LOGI("  - CV186X: NOT DEFINED");
+#endif
+#ifndef NO_OPENCV
+  LOGI("  - NO_OPENCV: NOT DEFINED (OpenCV enabled)");
+#else
+  LOGI("  - NO_OPENCV: DEFINED (OpenCV disabled)");
+#endif
+#ifdef CONFIG_ALIOS
+  LOGI("  - CONFIG_ALIOS: DEFINED");
+#else
+  LOGI("  - CONFIG_ALIOS: NOT DEFINED");
+#endif
+  
+  // ===== DEBUG: Input Validation =====
+  if (handle == nullptr) {
+    LOGE("DEBUG ERROR: handle is NULL");
+    return CVI_TDL_FAILURE;
+  }
+  if (buf == nullptr) {
+    LOGE("DEBUG ERROR: buf is NULL");
+    return CVI_TDL_FAILURE;
+  }
+  if (size == 0) {
+    LOGE("DEBUG ERROR: size is 0");
+    return CVI_TDL_FAILURE;
+  }
+  LOGI("DEBUG: Input validation passed");
 
-  if (instance != nullptr) {
-    if (instance->isInitialized()) {
-      LOGW("%s: Inference has already initialized. Please call CVI_TDL_CloseModel to reset.\n",
-           CVI_TDL_GetModelName(config));
-      return CVI_TDL_ERR_MODEL_INITIALIZED;
+  // ===== DEBUG: Context Casting =====
+  cvitdl_context_t *ctx = static_cast<cvitdl_context_t *>(handle);
+  LOGI("DEBUG: Context cast successful - ctx: %p", ctx);
+  
+  // ===== DEBUG: Context Structure Analysis =====
+  LOGI("DEBUG: Context structure analysis:");
+  LOGI("  - model_cont size: %zu", ctx->model_cont.size());
+  LOGI("  - custom_cont size: %zu", ctx->custom_cont.size());
+  LOGI("  - vec_vpss_engine size: %zu", ctx->vec_vpss_engine.size());
+  LOGI("  - vpss_timeout_value: %u", ctx->vpss_timeout_value);
+  LOGI("  - ive_handle: %p", ctx->ive_handle);
+  LOGI("  - md_model: %p", ctx->md_model);
+  LOGI("  - ds_tracker: %p", ctx->ds_tracker);
+  LOGI("  - td_model: %p", ctx->td_model);
+  LOGI("  - fall_model: %p", ctx->fall_model);
+  LOGI("  - fall_monitor_model: %p", ctx->fall_monitor_model);
+  LOGI("  - use_gdc_wrap: %s", ctx->use_gdc_wrap ? "true" : "false");
+
+  // ===== DEBUG: Model Container Access =====
+  LOGI("DEBUG: Accessing model container for config: %d (%s)", config, CVI_TDL_GetModelName(config));
+  LOGI("DEBUG: model_cont size before access: %zu", ctx->model_cont.size());
+  
+  // Check if the model exists in the container
+  auto it = ctx->model_cont.find(config);
+  if (it == ctx->model_cont.end()) {
+    LOGI("DEBUG: Model not found in container, creating new entry...");
+  } else {
+    LOGI("DEBUG: Model found in container");
+  }
+  
+  cvitdl_model_t &m_t = ctx->model_cont[config];
+
+  // INSERT_YOUR_CODE
+  // if (&m_t == 0) {
+  //   LOGE("DEBUG ERROR: &m_t is NULL for config: %d (%s)", config, CVI_TDL_GetModelName(config));
+  //   return CVI_TDL_ERR_OPEN_MODEL;
+  // }
+
+
+  LOGI("DEBUG: Model container access - config: %d, model_t: %p", config, &m_t);
+  LOGI("DEBUG: model_cont size after access: %zu", ctx->model_cont.size());
+  
+  // ===== DEBUG: Model Structure Analysis =====
+  LOGI("DEBUG: Model structure analysis:");
+  LOGI("  - instance: %p", m_t.instance);
+  LOGI("  - model_path: '%s'", m_t.model_path.c_str());
+  LOGI("  - vpss_thread: %u", m_t.vpss_thread);
+  LOGI("  - buf: %p", m_t.buf);
+
+  // ===== DEBUG: Buffer Analysis =====
+  LOGI("DEBUG: Buffer analysis:");
+  LOGI("  - buf pointer: %p", buf);
+  LOGI("  - size: %u bytes (%.2f KB)", size, size / 1024.0f);
+  if (size >= 16) {
+    LOGI("  - First 16 bytes (hex): %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+         buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
+         buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]);
+    LOGI("  - First 16 bytes (ascii): %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c",
+         (buf[0] >= 32 && buf[0] <= 126) ? buf[0] : '.',
+         (buf[1] >= 32 && buf[1] <= 126) ? buf[1] : '.',
+         (buf[2] >= 32 && buf[2] <= 126) ? buf[2] : '.',
+         (buf[3] >= 32 && buf[3] <= 126) ? buf[3] : '.',
+         (buf[4] >= 32 && buf[4] <= 126) ? buf[4] : '.',
+         (buf[5] >= 32 && buf[5] <= 126) ? buf[5] : '.',
+         (buf[6] >= 32 && buf[6] <= 126) ? buf[6] : '.',
+         (buf[7] >= 32 && buf[7] <= 126) ? buf[7] : '.',
+         (buf[8] >= 32 && buf[8] <= 126) ? buf[8] : '.',
+         (buf[9] >= 32 && buf[9] <= 126) ? buf[9] : '.',
+         (buf[10] >= 32 && buf[10] <= 126) ? buf[10] : '.',
+         (buf[11] >= 32 && buf[11] <= 126) ? buf[11] : '.',
+         (buf[12] >= 32 && buf[12] <= 126) ? buf[12] : '.',
+         (buf[13] >= 32 && buf[13] <= 126) ? buf[13] : '.',
+         (buf[14] >= 32 && buf[14] <= 126) ? buf[14] : '.',
+         (buf[15] >= 32 && buf[15] <= 126) ? buf[15] : '.');
+  }
+
+  // ===== DEBUG: Instance Creation =====
+  LOGI("DEBUG: Checking MODEL_CREATORS registration...");
+  LOGI("DEBUG: MODEL_CREATORS size: %zu", MODEL_CREATORS.size());
+  LOGI("DEBUG: MODEL_CREATORS_AUD size: %zu", MODEL_CREATORS_AUD.size());
+  
+  // Check if the specific model is registered
+  if (config == CVI_TDL_SUPPORTED_MODEL_SOUNDCLASSIFICATION) {
+    if (MODEL_CREATORS_AUD.find(config) != MODEL_CREATORS_AUD.end()) {
+      LOGI("DEBUG: Model %s found in MODEL_CREATORS_AUD", CVI_TDL_GetModelName(config));
+    } else {
+      LOGE("DEBUG: Model %s NOT found in MODEL_CREATORS_AUD", CVI_TDL_GetModelName(config));
     }
   } else {
+    if (MODEL_CREATORS.find(config) != MODEL_CREATORS.end()) {
+      LOGI("DEBUG: Model %s found in MODEL_CREATORS", CVI_TDL_GetModelName(config));
+    } else {
+      LOGE("DEBUG: Model %s NOT found in MODEL_CREATORS", CVI_TDL_GetModelName(config));
+      LOGE("DEBUG: Available models in MODEL_CREATORS:");
+      for (const auto& pair : MODEL_CREATORS) {
+        LOGE("  - %d: %s", pair.first, CVI_TDL_GetModelName(static_cast<CVI_TDL_SUPPORTED_MODEL_E>(pair.first)));
+      }
+    }
+  }
+  
+  Core *instance = getInferenceInstance(config, ctx);
+  LOGI("DEBUG: getInferenceInstance returned: %p", instance);
+
+  if (instance != nullptr) {
+    LOGI("DEBUG: Instance created successfully");
+    LOGI("DEBUG: Checking if instance is already initialized...");
+    
+    if (instance->isInitialized()) {
+      LOGW("DEBUG: Instance is already initialized!");
+      LOGW("%s: Inference has already initialized. Please call CVI_TDL_CloseModel to reset.\n",
+           CVI_TDL_GetModelName(config));
+      LOGI("=== CVI_TDL_OpenModel_FromBuffer DEBUG END (ALREADY_INITIALIZED) ===");
+      return CVI_TDL_ERR_MODEL_INITIALIZED;
+    } else {
+      LOGI("DEBUG: Instance is not initialized, proceeding...");
+    }
+  } else {
+    LOGE("DEBUG: Instance creation failed!");
     LOGE("Cannot create model: %s\n", CVI_TDL_GetModelName(config));
+    LOGI("=== CVI_TDL_OpenModel_FromBuffer DEBUG END (CREATE_FAILED) ===");
     return CVI_TDL_ERR_OPEN_MODEL;
   }
 
+  // model open
+  LOGI("DEBUG: Calling modelOpen with buf: %p, size: %u", m_t.buf, size);
   m_t.buf = buf;
   CVI_S32 ret = m_t.instance->modelOpen(m_t.buf, size);
+  LOGI("DEBUG: modelOpen returned: %d", ret);
+  
   if (ret != CVI_TDL_SUCCESS) {
-    LOGE("Failed to open model: %s (%d)", CVI_TDL_GetModelName(config), (int)*m_t.buf);
+    LOGE("DEBUG: modelOpen failed with return code: %d", ret);
+    LOGE("Failed to open model: %s (first byte: %d)", CVI_TDL_GetModelName(config), (int)*m_t.buf);
+    LOGI("=== CVI_TDL_OpenModel_FromBuffer DEBUG END (MODEL_OPEN_FAILED) ===");
     return ret;
   }
+  
+  LOGI("DEBUG: Model opened successfully!");
   LOGI("Model is opened successfully: %s \n", CVI_TDL_GetModelName(config));
+  LOGI("=== CVI_TDL_OpenModel_FromBuffer DEBUG END (SUCCESS) ===");
   return CVI_TDL_SUCCESS;
 }
 #else
+// ===== DEBUG: Function Not Available =====
+CVI_S32 CVI_TDL_OpenModel_FromBuffer(cvitdl_handle_t handle, CVI_TDL_SUPPORTED_MODEL_E config,
+                                     int8_t *buf, uint32_t size) {
+  LOGE("=== CVI_TDL_OpenModel_FromBuffer NOT AVAILABLE ===");
+  LOGE("ERROR: CVI_TDL_OpenModel_FromBuffer is not available on this platform!");
+  LOGE("This function is only available when CV186X is NOT defined.");
+  LOGE("Current compilation: CV186X is DEFINED, so this function is disabled.");
+  LOGE("Please use CVI_TDL_OpenModel instead for file-based model loading.");
+  return CVI_TDL_FAILURE;
+}
+
 CVI_S32 CVI_TDL_GetModelInputTpye(cvitdl_handle_t handle, CVI_TDL_SUPPORTED_MODEL_E config,
                                   int *inputDTpye) {
   cvitdl_context_t *ctx = static_cast<cvitdl_context_t *>(handle);

@@ -40,7 +40,17 @@ CVI_RC CVI_RT_SubmitPio(CVI_RT_HANDLE rt_handle)
 
 CVI_RC CVI_RT_Init(CVI_RT_HANDLE *rt_handle)
 {
-  return cvi_chip->Init(rt_handle);
+  printf("in VI_RC CVI_RT_Init(CVI_RT_HANDLE *rt_handle)\n");
+
+  if (!cvi_chip) {
+    printf("DEBUG: cvi_chip is empty (nullptr)\n");
+    return CVI_FAILURE;
+  } else {
+    printf("DEBUG: cvi_chip is not empty, runtime type: %s\n", typeid(*cvi_chip).name());
+  }
+
+  printf("DEBUG: rt_handle = %p\n", (void*)rt_handle);
+  return cvi_chip->Init(rt_handle);   // the child class CviRT180x (type of cvi_chip) does not implement Init, so CviRTSoc::Init is called
 }
 
 CVI_RC CVI_RT_DeInit(CVI_RT_HANDLE rt_handle)

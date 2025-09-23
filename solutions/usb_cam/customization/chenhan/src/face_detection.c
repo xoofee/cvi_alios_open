@@ -25,7 +25,7 @@
 
 // Weight partition configuration (from config.yaml)
 #define WEIGHT_PARTITION_ADDR 0x4DE000
-#define WEIGHT_PARTITION_SIZE 0x850000  // 8.3125 MB
+// #define WEIGHT_PARTITION_SIZE 0x850000  // 8.3125 MB
 
 // Global variables
 static cvitdl_handle_t g_face_detection_handle = NULL;
@@ -64,7 +64,7 @@ int init_weight_partition_access(void)
  */
 typedef struct {
     char magic[8];        // "CviModel" magic string
-    uint32_t body_size;   // Size of model body (payload)
+    uint32_t body_size;   // Size of model parameters
     char major;           // Major version
     char minor;           // Minor version  
     char md5[16];         // MD5 checksum
@@ -119,29 +119,40 @@ int load_model_from_weight_partition(cvitdl_handle_t handle)
     CVI_S32 ret = CVI_SUCCESS;
     
     printf("[%s] Loading model from weight partition...\n", TAG);
+
+    const uint8_t header_size = sizeof(MODEL_HEADER);
     
-    // First, read a small buffer to detect model size
-    uint8_t header_buffer[1024];
+    uint8_t header_buffer[header_size];
     ret = csi_spiflash_read(&g_spiflash_handle, WEIGHT_PARTITION_ADDR, 
-                           header_buffer, sizeof(header_buffer));
-    if (ret != 0) {
+                           header_buffer, header_size);
+    if (ret < 0) {
         printf("[%s] Failed to read model header: %d\n", TAG, ret);
         return CVI_FAILURE;
     }
+
+    MODEL_HEADER* header = (MODEL_HEADER*)header_buffer;
+    
+    printf("[%s] MODEL_HEADER info:\n", TAG);
+    printf("  magic     : %.8s\n", header->magic);
+    printf("  body_size : %u\n", header->body_size);
+    printf("  major     : %d\n", header->major);
+    printf("  minor     : %d\n", header->minor);
+    printf("  md5       :");
+    for (int i = 0; i < 16; ++i) {
+        printf(" %02X", (unsigned char)header->md5[i]);
+    }
+    printf("\n");
+    printf("  chip      : %.16s\n", header->chip);
+    printf("  padding   : %02X %02X\n", (unsigned char)header->padding[0], (unsigned char)header->padding[1]);
+
     
     // Detect actual model size
-    uint32_t actual_model_size = 551576;
-    // ret = detect_model_size_from_buffer((int8_t*)header_buffer, WEIGHT_PARTITION_SIZE, 
-    //                                    &actual_model_size);
-    // if (ret != CVI_SUCCESS) {
-    //     printf("[%s] Failed to detect model size\n", TAG);
-    //     return CVI_FAILURE;
-    // }
+    uint32_t model_size = 551576;
     
     // Allocate buffer for actual model size
-    g_model_buffer = (int8_t*)malloc(actual_model_size);
+    g_model_buffer = (int8_t*)malloc(model_size);
     if (!g_model_buffer) {
-        printf("[%s] Failed to allocate model buffer (%d bytes)\n", TAG, actual_model_size);
+        printf("[%s] Failed to allocate model buffer (%d bytes)\n", TAG, model_size);
         return CVI_FAILURE;
     }
     
@@ -149,21 +160,20 @@ int load_model_from_weight_partition(cvitdl_handle_t handle)
     
     // Read complete model data
     ret = csi_spiflash_read(&g_spiflash_handle, WEIGHT_PARTITION_ADDR, 
-                           g_model_buffer, actual_model_size);
-    if (ret != 0) {
+                           g_model_buffer, model_size);
+    if (ret < 0) {
         printf("[%s] Failed to read model data: %d\n", TAG, ret);
         free(g_model_buffer);
         g_model_buffer = NULL;
         return CVI_FAILURE;
     }
     
-    printf("[%s] ✅ Model data read from weight partition (%d bytes)\n", TAG, actual_model_size);
+    printf("[%s] ✅ Model data read from weight partition (%d bytes)\n", TAG, model_size);
     
-    // Load model from memory buffer using CVI_TDL_OpenModel_FromBuffer
     ret = CVI_TDL_OpenModel_FromBuffer(handle, 
                                       CVI_TDL_SUPPORTED_MODEL_RETINAFACE, 
-                                      g_model_buffer, 
-                                      actual_model_size);  // ← Use actual model size!
+                                      g_model_buffer,
+                                      model_size);
     
     if (ret == CVI_SUCCESS) {
         printf("[%s] ✅ Model loaded successfully from weight partition!\n", TAG);

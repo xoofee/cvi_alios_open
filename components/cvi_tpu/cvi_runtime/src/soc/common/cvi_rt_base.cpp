@@ -23,8 +23,20 @@ CVI_RC CviRTSoc::SubmitPio(CVI_RT_HANDLE rt_handle) {
 }
 
 CVI_RC CviRTSoc::Init(CVI_RT_HANDLE *rt_handle) {
+  printf("=== CviRTSoc::Init DEBUG START ===\n");
+  printf("DEBUG: rt_handle: %p\n", (void*)rt_handle);
+  printf("DEBUG: cvi_device: %p\n", (void*)cvi_device.get());
+  printf("DEBUG: chip_name_: %s\n", chip_name_.c_str());
+  printf("DEBUG: DEVICE_INDEX_NUM: %d\n", DEVICE_INDEX_NUM);
+  
   bmctx_t *ctx = (bmctx_t *)rt_handle;
-  cvi_device->device_init(DEVICE_INDEX_NUM, ctx);
+  printf("DEBUG: ctx: %p\n", (void*)ctx);
+  
+  printf("DEBUG: Calling cvi_device->device_init...\n");
+  cvi_device->device_init(DEVICE_INDEX_NUM, ctx);   // crash
+  printf("DEBUG: cvi_device->device_init completed successfully\n");
+  
+  printf("=== CviRTSoc::Init DEBUG END (SUCCESS) ===\n");
   return CVI_SUCCESS;
 }
 

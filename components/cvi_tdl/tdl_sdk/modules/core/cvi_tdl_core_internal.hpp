@@ -27,10 +27,12 @@ struct hash<CVI_TDL_SUPPORTED_MODEL_E> {
 };
 }  // namespace std
 
+
+
 typedef struct {
   std::unordered_map<CVI_TDL_SUPPORTED_MODEL_E, cvitdl_model_t> model_cont;
   std::vector<cvitdl_model_t> custom_cont;
-  std::vector<cvitdl::VpssEngine *> vec_vpss_engine;
+  std::vector<cvitdl::VpssEngine *> vec_vpss_engine;  // VPSS: Video Processing Sub-System
   uint32_t vpss_timeout_value = 100;  // default value.
   ive::IVE *ive_handle = NULL;
   MotionDetection *md_model = nullptr;
