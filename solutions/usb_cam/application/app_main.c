@@ -16,6 +16,7 @@
 #include "ethernet_init.h"
 #include "media_nightvision.h"
 #include "usbd_comp.h"
+#include "image_processor.h"
 
 
 #if CONFIG_USBD_CDC_RNDIS
@@ -120,8 +121,14 @@ int main(int argc, char *argv[])
 
 #if CONFIG_SUPPORT_USB_DC
 	// usb composite device
-	usbd_comp_init();
+	// usbd_comp_init();		# kick off the uvc video
 #endif
+
+	// Start image processor for brightness analysis
+	// printf("[%s] Starting image processor for brightness analysis...\n", TAG);
+	// if (image_processor_start() != CVI_SUCCESS) {
+	// 	printf("[%s] Failed to start image processor!\n", TAG);
+	// }
 #if CONFIG_NIGHT_VISION_SUPPORT
 	//night_vision
 	MEDIA_NightVisionInit();

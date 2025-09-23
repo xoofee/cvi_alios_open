@@ -649,8 +649,9 @@ static void video_streaming_send(struct uvc_device_info* uvc, int dev_index)
         UNUSED(pstStream);
         break;
     case YUYV_FORMAT_INDEX:
+
         ret =
-            CVI_VPSS_GetChnFrame(uvc->video.vpss_group, uvc->video.vpss_channel, pstVideoFrame, -1);
+        CVI_VPSS_GetChnFrame(uvc->video.vpss_group, uvc->video.vpss_channel, pstVideoFrame, -1);
         if (ret != CVI_SUCCESS) {
             printf("CVI_VPSS_GetChnFrame failed\n");
             aos_msleep(1);
@@ -661,8 +662,16 @@ static void video_streaming_send(struct uvc_device_info* uvc, int dev_index)
         pstVideoFrame->stVFrame.pu8VirAddr[0] = (uint8_t*)pstVideoFrame->stVFrame.u64PhyAddr[0];
         data_len                              = pstChnAttr->u32Width * 2;
         for (i = 0; i < (pstChnAttr->u32Height); ++i) {
-            memcpy(media_buffer[dev_index] + buf_len,
-                   pstVideoFrame->stVFrame.pu8VirAddr[0] + buf_len_stride, data_len);
+            // Invert pixel values (x to 255-x) for YUYV format
+            uint8_t *src_line = pstVideoFrame->stVFrame.pu8VirAddr[0] + buf_len_stride;
+            uint8_t *dst_line = media_buffer[dev_index] + buf_len;
+            
+            // Process YUYV format: Y0 U0 Y1 V0 Y2 U1 Y3 V1 ...
+            // Invert Y (luminance) values, keep U/V (chroma) unchanged
+            for (int j = 0; j < pstChnAttr->u32Width * 2; j += 2) {
+                dst_line[j] = 255 - src_line[j];     // Invert Y0
+                dst_line[j+1] = src_line[j+1];        // Keep U0/V0 unchanged
+            }
 
             buf_len += pstChnAttr->u32Width * 2;
             buf_len_stride += pstVideoFrame->stVFrame.u32Stride[0];
@@ -674,6 +683,32 @@ static void video_streaming_send(struct uvc_device_info* uvc, int dev_index)
         if (ret != CVI_SUCCESS)
             printf("CVI_VPSS_ReleaseChnFrame failed\n");
         break;
+
+        // ret =
+        //     CVI_VPSS_GetChnFrame(uvc->video.vpss_group, uvc->video.vpss_channel, pstVideoFrame, -1);
+        // if (ret != CVI_SUCCESS) {
+        //     printf("CVI_VPSS_GetChnFrame failed\n");
+        //     aos_msleep(1);
+        //     return;
+        // }
+        // CVI_VPSS_GetChnAttr(uvc->video.vpss_group, uvc->video.vpss_channel, pstChnAttr);
+
+        // pstVideoFrame->stVFrame.pu8VirAddr[0] = (uint8_t*)pstVideoFrame->stVFrame.u64PhyAddr[0];
+        // data_len                              = pstChnAttr->u32Width * 2;
+        // for (i = 0; i < (pstChnAttr->u32Height); ++i) {
+        //     memcpy(media_buffer[dev_index] + buf_len,
+        //            pstVideoFrame->stVFrame.pu8VirAddr[0] + buf_len_stride, data_len);
+
+        //     buf_len += pstChnAttr->u32Width * 2;
+        //     buf_len_stride += pstVideoFrame->stVFrame.u32Stride[0];
+        // }
+        // pstVideoFrame->stVFrame.pu8VirAddr[0] = NULL;
+
+        // ret =
+        //     CVI_VPSS_ReleaseChnFrame(uvc->video.vpss_group, uvc->video.vpss_channel, pstVideoFrame);
+        // if (ret != CVI_SUCCESS)
+        //     printf("CVI_VPSS_ReleaseChnFrame failed\n");
+        // break;
     case NV21_FORMAT_INDEX:
         printf("NV21_FORMAT_INDEX\n");
         ret =
