@@ -31,9 +31,8 @@ void uvc_frame_callback_adapter(VIDEO_FRAME_INFO_S *frame, VPSS_CHN_ATTR_S *chn_
     float brightness = brightness_sum / pixel_count;
     printf("[uvc_adapter] Brightness: %f\n", brightness);
 
-    // Future: Add other analyzers here
+    // Future: prepare to detect face
     // face_detector_process_frame(frame, chn_attr);
-    // motion_detector_process_frame(frame, chn_attr);
 }
 
 /**
