@@ -21,6 +21,8 @@ bmerr_t Cvi181xDeviceMem::device_open(int index, bmdev_t *dev)
   pdev->info.info182x = bmk1822_chip_info();
   pdev->gmem_size = g_gmem_size;
 
+  cvi_tpu_init();
+
   pdev->dev_fd = (cvi_tpu_device*)cvi_tpu_open();
   if (!pdev->dev_fd) {
     TPU_LOG_WARNING("open tpu dev failed\n");

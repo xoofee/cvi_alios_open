@@ -1,3 +1,21 @@
+# prompt
+
+implement this feature in chenhan of usb_cam solution
+1 image data from sensor to vi to vpss to uvc to (with yuv format) to be shown on PC through camera @usbd_uvc.c , full size
+this is already ok
+2 another vpss to a model input channel with RGB and reduce input size than the full size, and then call CVI_TDL_FaceDetection to get the bboxes. remove initialize the face detection (load from spi flash...etc )
+
+if you think you could do the resize and channel conversion without vpss and still be efficient, do it youself. otherwise, use vpss.
+
+3 the bbox will be painted in pstVideoFrame or media_buffer in video_streaming_send to leve the user view the bbox of face when view the uvc camera video stream.
+
+read how the usbd_uvc use the vi and vpss first before you write code, because that is a good example of using the sdk and hardware
+
+use a good architecture. flexible and extensible.
+
+make use_cam PROJECT="chanhan" to check the code. do not clean because it is expensive and unnecessary
+
+
 # Face Detection Implementation for Chenhan USB Camera
 
 This document describes the face detection feature implemented for the chenhan USB camera solution.

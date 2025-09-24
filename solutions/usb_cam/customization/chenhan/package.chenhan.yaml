@@ -137,6 +137,7 @@ build_config:
   include:
     - application/common/include
     - customization/include
+    - customization/chenhan/include
   internal_include:
 
   cflag: ""

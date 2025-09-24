@@ -31,106 +31,107 @@ static face_detection_context_t g_face_ctx = {0};
 static csi_spiflash_t g_spiflash_handle;
 static int8_t* g_model_buffer = NULL;
 
-/**
- * Initialize VPSS for face detection preprocessing
- */
-static CVI_S32 init_face_detection_vpss(void)
-{
-    CVI_S32 ret = CVI_SUCCESS;
+// already done in param/custom_vpssparam.c???
+// /**
+//  * Initialize VPSS for face detection preprocessing
+//  */
+// static CVI_S32 init_face_detection_vpss(void)
+// {
+//     CVI_S32 ret = CVI_SUCCESS;
     
-    if (g_face_ctx.vpss_initialized) {
-        return CVI_SUCCESS;
-    }
+//     if (g_face_ctx.vpss_initialized) {
+//         return CVI_SUCCESS;
+//     }
     
-    printf("[%s] Initializing VPSS for face detection preprocessing...\n", TAG);
+//     printf("[%s] Initializing VPSS for face detection preprocessing...\n", TAG);
     
-    // Configure VPSS group attributes
-    memset(&g_face_ctx.vpss_grp_attr, 0, sizeof(VPSS_GRP_ATTR_S));
-    g_face_ctx.vpss_grp_attr.u8VpssDev = 0;
-    g_face_ctx.vpss_grp_attr.u32MaxW = 1920;  // Max input width
-    g_face_ctx.vpss_grp_attr.u32MaxH = 1080;  // Max input height
-    g_face_ctx.vpss_grp_attr.enPixelFormat = PIXEL_FORMAT_NV21;
-    g_face_ctx.vpss_grp_attr.stFrameRate.s32SrcFrameRate = -1;
-    g_face_ctx.vpss_grp_attr.stFrameRate.s32DstFrameRate = -1;
+//     // Configure VPSS group attributes
+//     memset(&g_face_ctx.vpss_grp_attr, 0, sizeof(VPSS_GRP_ATTR_S));
+//     g_face_ctx.vpss_grp_attr.u8VpssDev = 0;
+//     g_face_ctx.vpss_grp_attr.u32MaxW = 1920;  // Max input width
+//     g_face_ctx.vpss_grp_attr.u32MaxH = 1080;  // Max input height
+//     g_face_ctx.vpss_grp_attr.enPixelFormat = PIXEL_FORMAT_NV21;
+//     g_face_ctx.vpss_grp_attr.stFrameRate.s32SrcFrameRate = -1;
+//     g_face_ctx.vpss_grp_attr.stFrameRate.s32DstFrameRate = -1;
     
-    // Configure VPSS channel attributes for face detection
-    memset(&g_face_ctx.vpss_chn_attr, 0, sizeof(VPSS_CHN_ATTR_S));
-    g_face_ctx.vpss_chn_attr.u32Width = FACE_DETECTION_MODEL_WIDTH;
-    g_face_ctx.vpss_chn_attr.u32Height = FACE_DETECTION_MODEL_HEIGHT;
-    g_face_ctx.vpss_chn_attr.enVideoFormat = VIDEO_FORMAT_LINEAR;
-    g_face_ctx.vpss_chn_attr.enPixelFormat = PIXEL_FORMAT_RGB_888_PLANAR;  // RGB for AI model
-    g_face_ctx.vpss_chn_attr.stFrameRate.s32SrcFrameRate = -1;
-    g_face_ctx.vpss_chn_attr.stFrameRate.s32DstFrameRate = -1;
-    g_face_ctx.vpss_chn_attr.bFlip = CVI_FALSE;
-    g_face_ctx.vpss_chn_attr.bMirror = CVI_FALSE;
-    g_face_ctx.vpss_chn_attr.u32Depth = 1;
+//     // Configure VPSS channel attributes for face detection
+//     memset(&g_face_ctx.vpss_chn_attr, 0, sizeof(VPSS_CHN_ATTR_S));
+//     g_face_ctx.vpss_chn_attr.u32Width = FACE_DETECTION_MODEL_WIDTH;
+//     g_face_ctx.vpss_chn_attr.u32Height = FACE_DETECTION_MODEL_HEIGHT;
+//     g_face_ctx.vpss_chn_attr.enVideoFormat = VIDEO_FORMAT_LINEAR;
+//     g_face_ctx.vpss_chn_attr.enPixelFormat = PIXEL_FORMAT_RGB_888_PLANAR;  // RGB for AI model
+//     g_face_ctx.vpss_chn_attr.stFrameRate.s32SrcFrameRate = -1;
+//     g_face_ctx.vpss_chn_attr.stFrameRate.s32DstFrameRate = -1;
+//     g_face_ctx.vpss_chn_attr.bFlip = CVI_FALSE;
+//     g_face_ctx.vpss_chn_attr.bMirror = CVI_FALSE;
+//     g_face_ctx.vpss_chn_attr.u32Depth = 1;
     
-    // Configure aspect ratio (stretch to exact dimensions)
-    g_face_ctx.vpss_chn_attr.stAspectRatio.enMode = ASPECT_RATIO_NONE;
-    g_face_ctx.vpss_chn_attr.stAspectRatio.bEnableBgColor = CVI_TRUE;
-    g_face_ctx.vpss_chn_attr.stAspectRatio.u32BgColor = COLOR_RGB_BLACK;
+//     // Configure aspect ratio (stretch to exact dimensions)
+//     g_face_ctx.vpss_chn_attr.stAspectRatio.enMode = ASPECT_RATIO_NONE;
+//     g_face_ctx.vpss_chn_attr.stAspectRatio.bEnableBgColor = CVI_TRUE;
+//     g_face_ctx.vpss_chn_attr.stAspectRatio.u32BgColor = COLOR_RGB_BLACK;
     
-    // Configure normalization (disable for raw data)
-    g_face_ctx.vpss_chn_attr.stNormalize.bEnable = CVI_FALSE;
+//     // Configure normalization (disable for raw data)
+//     g_face_ctx.vpss_chn_attr.stNormalize.bEnable = CVI_FALSE;
     
-    // Create VPSS group
-    ret = CVI_VPSS_CreateGrp(FACE_DETECTION_VPSS_GRP, &g_face_ctx.vpss_grp_attr);
-    if (ret != CVI_SUCCESS) {
-        printf("[%s] Failed to create VPSS group: %d\n", TAG, ret);
-        return ret;
-    }
+//     // Create VPSS group
+//     ret = CVI_VPSS_CreateGrp(FACE_DETECTION_VPSS_GRP, &g_face_ctx.vpss_grp_attr);
+//     if (ret != CVI_SUCCESS) {
+//         printf("[%s] Failed to create VPSS group: %d\n", TAG, ret);
+//         return ret;
+//     }
     
-    // Set VPSS channel attributes
-    ret = CVI_VPSS_SetChnAttr(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN, &g_face_ctx.vpss_chn_attr);
-    if (ret != CVI_SUCCESS) {
-        printf("[%s] Failed to set VPSS channel attributes: %d\n", TAG, ret);
-        CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
-        return ret;
-    }
+//     // Set VPSS channel attributes
+//     ret = CVI_VPSS_SetChnAttr(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN, &g_face_ctx.vpss_chn_attr);
+//     if (ret != CVI_SUCCESS) {
+//         printf("[%s] Failed to set VPSS channel attributes: %d\n", TAG, ret);
+//         CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
+//         return ret;
+//     }
     
-    // Enable VPSS channel
-    ret = CVI_VPSS_EnableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
-    if (ret != CVI_SUCCESS) {
-        printf("[%s] Failed to enable VPSS channel: %d\n", TAG, ret);
-        CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
-        return ret;
-    }
+//     // Enable VPSS channel
+//     ret = CVI_VPSS_EnableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
+//     if (ret != CVI_SUCCESS) {
+//         printf("[%s] Failed to enable VPSS channel: %d\n", TAG, ret);
+//         CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
+//         return ret;
+//     }
     
-    // Start VPSS group
-    ret = CVI_VPSS_StartGrp(FACE_DETECTION_VPSS_GRP);
-    if (ret != CVI_SUCCESS) {
-        printf("[%s] Failed to start VPSS group: %d\n", TAG, ret);
-        CVI_VPSS_DisableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
-        CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
-        return ret;
-    }
+//     // Start VPSS group
+//     ret = CVI_VPSS_StartGrp(FACE_DETECTION_VPSS_GRP);
+//     if (ret != CVI_SUCCESS) {
+//         printf("[%s] Failed to start VPSS group: %d\n", TAG, ret);
+//         CVI_VPSS_DisableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
+//         CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
+//         return ret;
+//     }
     
-    g_face_ctx.vpss_initialized = CVI_TRUE;
-    printf("[%s] VPSS initialized for face detection: %dx%d -> %dx%d\n", 
-           TAG, g_face_ctx.vpss_grp_attr.u32MaxW, g_face_ctx.vpss_grp_attr.u32MaxH, 
-           FACE_DETECTION_MODEL_WIDTH, FACE_DETECTION_MODEL_HEIGHT);
+//     g_face_ctx.vpss_initialized = CVI_TRUE;
+//     printf("[%s] VPSS initialized for face detection: %dx%d -> %dx%d\n", 
+//            TAG, g_face_ctx.vpss_grp_attr.u32MaxW, g_face_ctx.vpss_grp_attr.u32MaxH, 
+//            FACE_DETECTION_MODEL_WIDTH, FACE_DETECTION_MODEL_HEIGHT);
     
-    return CVI_SUCCESS;
-}
+//     return CVI_SUCCESS;
+// }
 
-/**
- * Deinitialize VPSS for face detection
- */
-static void deinit_face_detection_vpss(void)
-{
-    if (!g_face_ctx.vpss_initialized) {
-        return;
-    }
+// /**
+//  * Deinitialize VPSS for face detection
+//  */
+// static void deinit_face_detection_vpss(void)
+// {
+//     if (!g_face_ctx.vpss_initialized) {
+//         return;
+//     }
     
-    printf("[%s] Deinitializing VPSS for face detection...\n", TAG);
+//     printf("[%s] Deinitializing VPSS for face detection...\n", TAG);
     
-    CVI_VPSS_StopGrp(FACE_DETECTION_VPSS_GRP);
-    CVI_VPSS_DisableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
-    CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
+//     CVI_VPSS_StopGrp(FACE_DETECTION_VPSS_GRP);
+//     CVI_VPSS_DisableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
+//     CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
     
-    g_face_ctx.vpss_initialized = CVI_FALSE;
-    printf("[%s] VPSS deinitialized for face detection\n", TAG);
-}
+//     g_face_ctx.vpss_initialized = CVI_FALSE;
+//     printf("[%s] VPSS deinitialized for face detection\n", TAG);
+// }
 
 /**
  * Initialize spiflash for weight partition access
@@ -239,16 +240,16 @@ CVI_S32 face_detection_init(void)
         return ret;
     }
     
-    // Initialize VPSS for preprocessing
-    ret = init_face_detection_vpss();
-    if (ret != CVI_SUCCESS) {
-        printf("[%s] Failed to initialize VPSS for face detection\n", TAG);
-        CVI_TDL_DestroyHandle(g_face_ctx.tdl_handle);
-        g_face_ctx.tdl_handle = NULL;
-        free(g_model_buffer);
-        g_model_buffer = NULL;
-        return ret;
-    }
+    // // Initialize VPSS for preprocessing
+    // ret = init_face_detection_vpss();
+    // if (ret != CVI_SUCCESS) {
+    //     printf("[%s] Failed to initialize VPSS for face detection\n", TAG);
+    //     CVI_TDL_DestroyHandle(g_face_ctx.tdl_handle);
+    //     g_face_ctx.tdl_handle = NULL;
+    //     free(g_model_buffer);
+    //     g_model_buffer = NULL;
+    //     return ret;
+    // }
     
     g_face_ctx.initialized = CVI_TRUE;
     g_face_ctx.total_faces_detected = 0;
@@ -270,7 +271,7 @@ void face_detection_deinit(void)
     }
     
     // Deinitialize VPSS
-    deinit_face_detection_vpss();
+    // deinit_face_detection_vpss();
     
     // Destroy TDL handle
     if (g_face_ctx.tdl_handle) {
@@ -297,6 +298,7 @@ void face_detection_deinit(void)
 int face_detection_process_frame(VIDEO_FRAME_INFO_S *frame, VPSS_CHN_ATTR_S *chn_attr,
                                  face_detection_result_t *results, int max_results)
 {
+    printf(" [face_detection_process_frame] \n");
     CVI_S32 ret = CVI_SUCCESS;
     VIDEO_FRAME_INFO_S processed_frame = {0};
     int num_faces = 0;
@@ -306,6 +308,9 @@ int face_detection_process_frame(VIDEO_FRAME_INFO_S *frame, VPSS_CHN_ATTR_S *chn
     }
     
     pthread_mutex_lock(&g_face_ctx.mutex);
+
+    // 22 is PIXEL_FORMAT_YUYV, see cvi_comm_video.h PIXEL_FORMAT_E
+    printf("[%s] Input frame pixel format: %d\n", TAG, frame->stVFrame.enPixelFormat);
     
     // Send frame to VPSS for preprocessing (resize + format conversion)
     ret = CVI_VPSS_SendFrame(FACE_DETECTION_VPSS_GRP, frame, FACE_DETECTION_TIMEOUT);
