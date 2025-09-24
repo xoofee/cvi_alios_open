@@ -33,10 +33,18 @@ PARAM_CLASSDEFINE(PARAM_VB_CFG_S,VBPOOL,CTX,VB)[] = {
     //     .enBitWidth = DATA_BITWIDTH_10,
     //     .enCmpMode = COMPRESS_MODE_NONE,
     // },
+    {
+        .u16width = 608,   // Face detection model input width
+        .u16height = 342,  // Face detection model input height
+        .u8VbBlkCnt = 3,   // Small buffer pool for face detection
+        .fmt = PIXEL_FORMAT_RGB_888_PLANAR,  // RGB for AI model
+        .enBitWidth = DATA_BITWIDTH_8,
+        .enCmpMode = COMPRESS_MODE_NONE,
+    },
 };
 
 PARAM_SYS_CFG_S  g_stSysCtx = {
-    .u8VbPoolCnt = 2,
+    .u8VbPoolCnt = 3,  // Updated to include face detection VB pool
     .u8ViCnt = 2,
     .stVIVPSSMode.aenMode[0] = VI_OFFLINE_VPSS_OFFLINE,
     .stVIVPSSMode.aenMode[1] = VI_OFFLINE_VPSS_OFFLINE,

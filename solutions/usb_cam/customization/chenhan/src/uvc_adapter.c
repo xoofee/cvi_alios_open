@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 #include "usbd_uvc_callback.h"
-#include "brightness_analyzer.h"
+#include "face_detection.h"
 
 /**
  * UVC frame callback adapter
@@ -13,40 +13,49 @@
  */
 void uvc_frame_callback_adapter(VIDEO_FRAME_INFO_S *frame, VPSS_CHN_ATTR_S *chn_attr)
 {
-    printf("[uvc_adapter] UVC frame callback adapter\n");
-    // Forward to brightness analyzer
-    // brightness_analyzer_process_frame(frame, chn_attr);
+    printf("[uvc_adapter] UVC frame callback adapter - Frame size: %dx%d\n", 
+           frame->stVFrame.u32Width, frame->stVFrame.u32Height);
     
-    uint64_t brightness_sum = 0;
-    int pixel_count = 0;
-    
-    // Process YUYV format: Y0 U0 Y1 V0 Y2 U1 Y3 V1 ...
-    // We only care about Y (luminance) values at even indices
-    uint8_t *yuyv_data = (uint8_t*)frame->stVFrame.u64PhyAddr[0];
-    for (int i = 0; i < frame->stVFrame.u32Width * frame->stVFrame.u32Height * 2; i += 2) {
-        brightness_sum += yuyv_data[i];  // Y value
-        pixel_count++;
+    // Process face detection if initialized
+    if (face_detection_is_initialized()) {
+        face_detection_result_t results[MAX_FACES];
+        int num_faces = face_detection_process_frame(frame, chn_attr, results, MAX_FACES);
+        
+        if (num_faces > 0) {
+            // Draw bounding boxes on the frame
+            face_detection_draw_boxes(frame, chn_attr, results, num_faces);
+            
+            // Print statistics
+            int total_faces, total_frames;
+            face_detection_get_stats(&total_faces, &total_frames);
+            printf("[uvc_adapter] Face detection stats: %d faces in %d frames\n", 
+                   total_faces, total_frames);
+        }
+    } else {
+        printf("[uvc_adapter] Face detection not initialized, skipping...\n");
     }
-    
-    float brightness = brightness_sum / pixel_count;
-    printf("[uvc_adapter] Brightness: %f\n", brightness);
-
-    // Future: prepare to detect face
-    // face_detector_process_frame(frame, chn_attr);
 }
 
 /**
  * Initialize UVC adapter
- * Registers the adapter callback with UVC component
+ * Registers the adapter callback with UVC component and initializes face detection
  */
 int uvc_adapter_init(void)
 {
     printf("[uvc_adapter] Initializing UVC adapter...\n");
     
+    // Initialize face detection module
+    int ret = face_detection_init();
+    if (ret != CVI_SUCCESS) {
+        printf("[uvc_adapter] Failed to initialize face detection: %d\n", ret);
+        return ret;
+    }
+    
     // Register adapter callback with UVC component
-    int ret = uvc_frame_callback_register(uvc_frame_callback_adapter);
+    ret = uvc_frame_callback_register(uvc_frame_callback_adapter);
     if (ret != CVI_SUCCESS) {
         printf("[uvc_adapter] Failed to register UVC callback: %d\n", ret);
+        face_detection_deinit();
         return ret;
     }
     
@@ -63,6 +72,9 @@ void uvc_adapter_deinit(void)
     
     // Unregister callback from UVC component
     uvc_frame_callback_unregister();
+    
+    // Deinitialize face detection module
+    face_detection_deinit();
     
     printf("[uvc_adapter] UVC adapter deinitialized!\n");
 }

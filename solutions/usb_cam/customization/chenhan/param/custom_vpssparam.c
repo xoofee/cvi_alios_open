@@ -83,6 +83,44 @@ PARAM_CLASSDEFINE(PARAM_VPSS_CHN_CFG_S,CHNCFG,GRP1,CHN)[] = {
     },
 };
 
+// Face detection VPSS channel configuration
+PARAM_CLASSDEFINE(PARAM_VPSS_CHN_CFG_S,CHNCFG,GRP2,CHN)[] = {
+    {
+        .u8Rotation = ROTATION_0,
+        .stVpssChnAttr = {
+            .u32Width = 608,   // Face detection model input width
+            .u32Height = 342,  // Face detection model input height
+            .enVideoFormat = VIDEO_FORMAT_LINEAR,
+            .enPixelFormat = PIXEL_FORMAT_RGB_888_PLANAR,  // RGB for AI model
+            .stFrameRate = {
+                .s32SrcFrameRate = -1,
+                .s32DstFrameRate = -1,
+            },
+            .bFlip = CVI_FALSE,
+            .bMirror = CVI_FALSE,
+            .u32Depth = 1,
+            .stAspectRatio= {
+                .enMode = ASPECT_RATIO_NONE,  // Stretch to exact dimensions
+                .bEnableBgColor = CVI_TRUE,
+                .u32BgColor = COLOR_RGB_BLACK,
+            },
+            .stNormalize = {
+                .bEnable = CVI_FALSE,
+            },
+        },
+        .stVpssChnCropInfo = {
+            .bEnable = CVI_FALSE,
+            .enCropCoordinate = VPSS_CROP_RATIO_COOR,
+            .stCropRect = {
+                .s32X = 0,
+                .s32Y = 0,
+                .u32Height = -1,
+                .u32Width = -1,
+            },
+        },
+    },
+};
+
 PARAM_CLASSDEFINE(PARAM_VPSS_GRP_CFG_S,GRPCFG,CTX,GRP)[] = {
     {
         .VpssGrp = 0,
@@ -160,11 +198,44 @@ PARAM_CLASSDEFINE(PARAM_VPSS_GRP_CFG_S,GRPCFG,CTX,GRP)[] = {
             },
         },
     },
+    {
+        .VpssGrp = 2,
+        .u8ChnCnt = 1,
+        .pstChnCfg = PARAM_CLASS(CHNCFG,GRP2,CHN),
+        .u8ViRotation = 0,
+        .s32BindVidev = -1,  // Not bound to VI, will receive frames via SendFrame
+        .stVpssGrpAttr = {
+            .u8VpssDev = 0,
+            .u32MaxW = 1920,  // Max input width
+            .u32MaxH = 1080,  // Max input height
+            .enPixelFormat = PIXEL_FORMAT_NV21,
+            .stFrameRate = {
+                .s32SrcFrameRate = -1,
+                .s32DstFrameRate = -1,
+            },
+        },
+        .bBindMode = CVI_FALSE,  // Manual mode for face detection
+        .astChn[0] = {
+            .enModId = CVI_ID_VPSS,
+            .s32DevId = 2,
+            .s32ChnId = 1,
+        },
+        .stVpssGrpCropInfo = {
+            .bEnable = CVI_FALSE,
+            .enCropCoordinate = VPSS_CROP_RATIO_COOR,
+            .stCropRect = {
+                .s32X = 0,
+                .s32Y = 0,
+                .u32Height = -1,
+                .u32Width = -1,
+            },
+        },
+    },
 };
 
 
 PARAM_VPSS_CFG_S  g_stVpssCtx = {
-    .u8GrpCnt = 2,
+    .u8GrpCnt = 3,  // Updated to include face detection group
     .pstVpssGrpCfg = PARAM_CLASS(GRPCFG,CTX,GRP),
 };
 

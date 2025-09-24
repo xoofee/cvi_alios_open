@@ -1,20 +1,8 @@
 /*
- * Face Detection Module for USB Camera
- * Detects faces in video stream and prints messages
-
-Camera Sensor (GC2093)
-    ↓ Raw Bayer Data (12-bit)
-VI Device (MIPI Interface)
-    ↓ Raw Bayer Data
-VI Pipe (ISP Processing)
-    ↓ Processed RGB/YUV Data
-VI Channel (Format Conversion)
-    ↓ YUV 4:2:0 Planar (1280x720)
-VPSS (Video Processing)
-    ↓ Scaled/Converted Data
-AI Model / Display
-
-
+ * Copyright (C) Cvitek Co., Ltd. 2019-2020. All rights reserved.
+ *
+ * File Name: face_detection.c
+ * Description: Face detection module for USB camera solution
  */
 
 #include <stdio.h>
@@ -22,48 +10,132 @@ AI Model / Display
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <aos/kernel.h>
 #include "cvi_tdl.h"
 #include "cvi_tdl_core.h"
 #include "cvi_tpu_interface.h"
 #include "cvi_vpss.h"
 #include "cvi_param.h"
 #include "drv/spiflash.h"
+#include "face_detection.h"
 
 #define TAG "face_detection"
 
-// Face detection configuration
-#define FACE_DETECTION_VPSS_GRP 15
-#define FACE_DETECTION_VPSS_CHN 2
-#define FACE_DETECTION_TIMEOUT 2000
+// Global face detection context
+static face_detection_context_t g_face_ctx = {0};
 
-// Weight partition configuration (from config.yaml)
+// Weight partition configuration
 #define WEIGHT_PARTITION_ADDR 0x4DE000
-// #define WEIGHT_PARTITION_SIZE 0x850000  // 8.3125 MB
+#define MODEL_SIZE 551576
 
-// Global variables
-// static cvitdl_handle_t g_face_detection_handle = NULL;
-static pthread_t g_face_detection_thread;
-static int g_face_detection_running = 0;
-static pthread_mutex_t g_face_detection_mutex;
+// Spiflash handle for model loading
 static csi_spiflash_t g_spiflash_handle;
 static int8_t* g_model_buffer = NULL;
 
-// Face detection statistics
-static int g_total_faces_detected = 0;
-static int g_detection_frames = 0;
+/**
+ * Initialize VPSS for face detection preprocessing
+ */
+static CVI_S32 init_face_detection_vpss(void)
+{
+    CVI_S32 ret = CVI_SUCCESS;
+    
+    if (g_face_ctx.vpss_initialized) {
+        return CVI_SUCCESS;
+    }
+    
+    printf("[%s] Initializing VPSS for face detection preprocessing...\n", TAG);
+    
+    // Configure VPSS group attributes
+    memset(&g_face_ctx.vpss_grp_attr, 0, sizeof(VPSS_GRP_ATTR_S));
+    g_face_ctx.vpss_grp_attr.u8VpssDev = 0;
+    g_face_ctx.vpss_grp_attr.u32MaxW = 1920;  // Max input width
+    g_face_ctx.vpss_grp_attr.u32MaxH = 1080;  // Max input height
+    g_face_ctx.vpss_grp_attr.enPixelFormat = PIXEL_FORMAT_NV21;
+    g_face_ctx.vpss_grp_attr.stFrameRate.s32SrcFrameRate = -1;
+    g_face_ctx.vpss_grp_attr.stFrameRate.s32DstFrameRate = -1;
+    
+    // Configure VPSS channel attributes for face detection
+    memset(&g_face_ctx.vpss_chn_attr, 0, sizeof(VPSS_CHN_ATTR_S));
+    g_face_ctx.vpss_chn_attr.u32Width = FACE_DETECTION_MODEL_WIDTH;
+    g_face_ctx.vpss_chn_attr.u32Height = FACE_DETECTION_MODEL_HEIGHT;
+    g_face_ctx.vpss_chn_attr.enVideoFormat = VIDEO_FORMAT_LINEAR;
+    g_face_ctx.vpss_chn_attr.enPixelFormat = PIXEL_FORMAT_RGB_888_PLANAR;  // RGB for AI model
+    g_face_ctx.vpss_chn_attr.stFrameRate.s32SrcFrameRate = -1;
+    g_face_ctx.vpss_chn_attr.stFrameRate.s32DstFrameRate = -1;
+    g_face_ctx.vpss_chn_attr.bFlip = CVI_FALSE;
+    g_face_ctx.vpss_chn_attr.bMirror = CVI_FALSE;
+    g_face_ctx.vpss_chn_attr.u32Depth = 1;
+    
+    // Configure aspect ratio (stretch to exact dimensions)
+    g_face_ctx.vpss_chn_attr.stAspectRatio.enMode = ASPECT_RATIO_NONE;
+    g_face_ctx.vpss_chn_attr.stAspectRatio.bEnableBgColor = CVI_TRUE;
+    g_face_ctx.vpss_chn_attr.stAspectRatio.u32BgColor = COLOR_RGB_BLACK;
+    
+    // Configure normalization (disable for raw data)
+    g_face_ctx.vpss_chn_attr.stNormalize.bEnable = CVI_FALSE;
+    
+    // Create VPSS group
+    ret = CVI_VPSS_CreateGrp(FACE_DETECTION_VPSS_GRP, &g_face_ctx.vpss_grp_attr);
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to create VPSS group: %d\n", TAG, ret);
+        return ret;
+    }
+    
+    // Set VPSS channel attributes
+    ret = CVI_VPSS_SetChnAttr(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN, &g_face_ctx.vpss_chn_attr);
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to set VPSS channel attributes: %d\n", TAG, ret);
+        CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
+        return ret;
+    }
+    
+    // Enable VPSS channel
+    ret = CVI_VPSS_EnableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to enable VPSS channel: %d\n", TAG, ret);
+        CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
+        return ret;
+    }
+    
+    // Start VPSS group
+    ret = CVI_VPSS_StartGrp(FACE_DETECTION_VPSS_GRP);
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to start VPSS group: %d\n", TAG, ret);
+        CVI_VPSS_DisableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
+        CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
+        return ret;
+    }
+    
+    g_face_ctx.vpss_initialized = CVI_TRUE;
+    printf("[%s] VPSS initialized for face detection: %dx%d -> %dx%d\n", 
+           TAG, g_face_ctx.vpss_grp_attr.u32MaxW, g_face_ctx.vpss_grp_attr.u32MaxH, 
+           FACE_DETECTION_MODEL_WIDTH, FACE_DETECTION_MODEL_HEIGHT);
+    
+    return CVI_SUCCESS;
+}
 
-static cvitdl_handle_t g_tdl_handle = NULL;
-// static cvitdl_service_handle_t g_service_handle = NULL;
-
-void check_camera_pixel_format(void);
-
-
+/**
+ * Deinitialize VPSS for face detection
+ */
+static void deinit_face_detection_vpss(void)
+{
+    if (!g_face_ctx.vpss_initialized) {
+        return;
+    }
+    
+    printf("[%s] Deinitializing VPSS for face detection...\n", TAG);
+    
+    CVI_VPSS_StopGrp(FACE_DETECTION_VPSS_GRP);
+    CVI_VPSS_DisableChn(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN);
+    CVI_VPSS_DestroyGrp(FACE_DETECTION_VPSS_GRP);
+    
+    g_face_ctx.vpss_initialized = CVI_FALSE;
+    printf("[%s] VPSS deinitialized for face detection\n", TAG);
+}
 
 /**
  * Initialize spiflash for weight partition access
  */
-int init_weight_partition_access(void)
+static CVI_S32 init_weight_partition_access(void)
 {
     CVI_S32 ret = CVI_SUCCESS;
     
@@ -81,68 +153,24 @@ int init_weight_partition_access(void)
 }
 
 /**
- * CVIModel header structure (from cvi_runtime/include/runtime/model.hpp)
+ * Load face detection model from weight partition
  */
-typedef struct {
-    char magic[8];        // "CviModel" magic string
-    uint32_t body_size;   // Size of model parameters
-    char major;           // Major version
-    char minor;           // Minor version  
-    char md5[16];         // MD5 checksum
-    char chip[16];        // Target chip type
-    char padding[2];     // Padding bytes
-} MODEL_HEADER;
-
-/**
- * Load model from weight partition using CVI_TDL_OpenModel_FromBuffer
- */
-int load_model_from_weight_partition(cvitdl_handle_t handle)
+static CVI_S32 load_face_detection_model(void)
 {
     CVI_S32 ret = CVI_SUCCESS;
     
-    printf("[%s] Loading model from weight partition...\n", TAG);
-
-    const uint8_t header_size = sizeof(MODEL_HEADER);
+    printf("[%s] Loading face detection model from weight partition...\n", TAG);
     
-    uint8_t header_buffer[header_size];
-    ret = csi_spiflash_read(&g_spiflash_handle, WEIGHT_PARTITION_ADDR, 
-                           header_buffer, header_size);
-    if (ret < 0) {
-        printf("[%s] Failed to read model header: %d\n", TAG, ret);
-        return CVI_FAILURE;
-    }
-
-    MODEL_HEADER* header = (MODEL_HEADER*)header_buffer;
-    
-    printf("[%s] MODEL_HEADER info:\n", TAG);
-    printf("  magic     : %.8s\n", header->magic);
-    printf("  body_size : %u\n", header->body_size);
-    printf("  major     : %d\n", header->major);
-    printf("  minor     : %d\n", header->minor);
-    printf("  md5       :");
-    for (int i = 0; i < 16; ++i) {
-        printf(" %02X", (unsigned char)header->md5[i]);
-    }
-    printf("\n");
-    printf("  chip      : %.16s\n", header->chip);
-    printf("  padding   : %02X %02X\n", (unsigned char)header->padding[0], (unsigned char)header->padding[1]);
-
-    
-    // Detect actual model size
-    uint32_t model_size = 551576;
-    
-    // Allocate buffer for actual model size
-    g_model_buffer = (int8_t*)malloc(model_size);
+    // Allocate buffer for model
+    g_model_buffer = (int8_t*)malloc(MODEL_SIZE);
     if (!g_model_buffer) {
-        printf("[%s] Failed to allocate model buffer (%d bytes)\n", TAG, model_size);
+        printf("[%s] Failed to allocate model buffer (%d bytes)\n", TAG, MODEL_SIZE);
         return CVI_FAILURE;
     }
     
-    printf("[%s] Reading complete model from weight partition (0x%X)...\n", TAG, WEIGHT_PARTITION_ADDR);
-    
-    // Read complete model data
+    // Read model data from weight partition
     ret = csi_spiflash_read(&g_spiflash_handle, WEIGHT_PARTITION_ADDR, 
-                           g_model_buffer, model_size);
+                           g_model_buffer, MODEL_SIZE);
     if (ret < 0) {
         printf("[%s] Failed to read model data: %d\n", TAG, ret);
         free(g_model_buffer);
@@ -150,19 +178,30 @@ int load_model_from_weight_partition(cvitdl_handle_t handle)
         return CVI_FAILURE;
     }
     
-    printf("[%s] ✅ Model data read from weight partition (%d bytes)\n", TAG, model_size);
+    printf("[%s] ✅ Model data read from weight partition (%d bytes)\n", TAG, MODEL_SIZE);
     
-    ret = CVI_TDL_OpenModel_FromBuffer(handle, 
+    // Initialize TDL handle
+    ret = CVI_TDL_CreateHandle(&g_face_ctx.tdl_handle);
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to create TDL handle: %d\n", TAG, ret);
+        free(g_model_buffer);
+        g_model_buffer = NULL;
+        return CVI_FAILURE;
+    }
+    
+    // Load model from buffer
+    ret = CVI_TDL_OpenModel_FromBuffer(g_face_ctx.tdl_handle, 
                                       CVI_TDL_SUPPORTED_MODEL_RETINAFACE, 
                                       g_model_buffer,
-                                      model_size);
+                                      MODEL_SIZE);
     
     if (ret == CVI_SUCCESS) {
-        printf("[%s] ✅ Model loaded successfully from weight partition!\n", TAG);
-        // Note: Don't free g_model_buffer here - TDL keeps reference to it
+        printf("[%s] ✅ Face detection model loaded successfully!\n", TAG);
         return CVI_SUCCESS;
     } else {
-        printf("[%s] ❌ Failed to load model from buffer: %d\n", TAG, ret);
+        printf("[%s] ❌ Failed to load face detection model: %d\n", TAG, ret);
+        CVI_TDL_DestroyHandle(g_face_ctx.tdl_handle);
+        g_face_ctx.tdl_handle = NULL;
         free(g_model_buffer);
         g_model_buffer = NULL;
         return CVI_FAILURE;
@@ -170,287 +209,183 @@ int load_model_from_weight_partition(cvitdl_handle_t handle)
 }
 
 /**
- * Initialize face detection system
+ * Initialize face detection module
  */
-int face_detection_init(void)
+CVI_S32 face_detection_init(void)
 {
     CVI_S32 ret = CVI_SUCCESS;
     
-    printf("[%s] Initializing face detection system...\n", TAG);
+    printf("[%s] Initializing face detection module...\n", TAG);
     
-    // Initialize TPU
-    cvi_tpu_init();
-    // if (ret != CVI_SUCCESS) {
-    //     printf("[%s] TPU initialization failed: %d\n", TAG, ret);
-    //     return ret;
-    // }
-    
-
-    // ret |= CVI_TDL_Service_CreateHandle(&g_service_handle, g_tdl_handle);
-    // if (ret != CVI_SUCCESS) {
-    //     printf("Create tdl handle failed with %#x!\n", ret);
-    //     return ret;
-    // }
-
-    // Initialize spiflash for weight partition access
-    ret = init_weight_partition_access();       // init g_spiflash_handle
-    if (ret != CVI_SUCCESS) {
-        printf("[%s] Spiflash initialization failed: %d\n", TAG, ret);
-        cvi_tpu_deinit();
-        return ret;
+    if (g_face_ctx.initialized) {
+        printf("[%s] Face detection already initialized\n", TAG);
+        return CVI_SUCCESS;
     }
     
-    // Wait for TPU to be ready
-    aos_msleep(1000);
-
-
-    // Create TDL handle
-    // ret = CVI_TDL_CreateHandle2(&g_face_detection_handle, FACE_DETECTION_VPSS_GRP, 0);
-    // if (ret != CVI_SUCCESS) {
-    //     printf("[%s] TDL handle creation failed: %d\n", TAG, ret);
-    //     csi_spiflash_spi_uninit(&g_spiflash_handle);
-    //     cvi_tpu_deinit();
-    //     return ret;
-    // }
-    
-    // Load model from weight partition using FromBuffer
-
-    ret = CVI_TDL_CreateHandle(&g_tdl_handle);
-    if (ret != CVI_SUCCESS) {
-        printf("[%s] TDL handle creation failed: %d\n", TAG, ret);
-        csi_spiflash_spi_uninit(&g_spiflash_handle);
-        cvi_tpu_deinit();
-        return ret;
-    }
-
-    ret = load_model_from_weight_partition(g_tdl_handle);
-    if (ret != CVI_SUCCESS) {
-        printf("[%s] Failed to load model from weight partition\n", TAG);
-        CVI_TDL_DestroyHandle(g_tdl_handle);
-        csi_spiflash_spi_uninit(&g_spiflash_handle);
-        cvi_tpu_deinit();
-        return ret;
-    }
-    
-    // printf("[%s] Initializing VPSS...\n", TAG);
-
-    // // Camera input resolution (from your sysparam.c)
-    // // model : [1, 3, 342, 608]    NCHW
-    // int camera_width  = 1920;
-    // int camera_height = 1080;
-    
-    // // Model input resolution (from retinaface_mnet0.25_342_608.cvimodel)
-    // int model_width  = 608;   // Model expects 608x342
-    // int model_height = 342;
-    
-    // // from solutions/usb_cam/customization/chenhan/param/custom_sysparam.c
-    // // format is PIXEL_FORMAT_NV21
-    // ret = MMF_INIT_HELPER2(camera_width, camera_height, PIXEL_FORMAT_NV21, 2,
-    //                        model_width, model_height, PIXEL_FORMAT_RGB_888, 2);
-    // if (ret != CVI_SUCCESS) {
-    //     printf("Init sys failed with %#x!\n", ret);
-    //     return ret;
-    // }
-
-    // printf("[%s] Initializing VPSS done\n", TAG);
-
-
     // Initialize mutex
-    pthread_mutex_init(&g_face_detection_mutex, NULL);
+    pthread_mutex_init(&g_face_ctx.mutex, NULL);
     
-    printf("[%s] Face detection system initialized successfully!\n", TAG);
+    // Initialize spiflash for model loading
+    ret = init_weight_partition_access();
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to initialize weight partition access\n", TAG);
+        return ret;
+    }
+    
+    // Load face detection model
+    ret = load_face_detection_model();
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to load face detection model\n", TAG);
+        return ret;
+    }
+    
+    // Initialize VPSS for preprocessing
+    ret = init_face_detection_vpss();
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to initialize VPSS for face detection\n", TAG);
+        CVI_TDL_DestroyHandle(g_face_ctx.tdl_handle);
+        g_face_ctx.tdl_handle = NULL;
+        free(g_model_buffer);
+        g_model_buffer = NULL;
+        return ret;
+    }
+    
+    g_face_ctx.initialized = CVI_TRUE;
+    g_face_ctx.total_faces_detected = 0;
+    g_face_ctx.detection_frames = 0;
+    
+    printf("[%s] ✅ Face detection module initialized successfully!\n", TAG);
     return CVI_SUCCESS;
 }
 
 /**
- * Deinitialize face detection system
+ * Deinitialize face detection module
  */
 void face_detection_deinit(void)
 {
-    printf("[%s] Deinitializing face detection system...\n", TAG);
+    printf("[%s] Deinitializing face detection module...\n", TAG);
     
-    // Stop detection thread
-    g_face_detection_running = 0;
-    if (g_face_detection_thread) {
-        pthread_join(g_face_detection_thread, NULL);
+    if (!g_face_ctx.initialized) {
+        return;
     }
     
-    // Cleanup TDL handle
-    if (g_tdl_handle) {
-        CVI_TDL_CloseAllModel(g_tdl_handle);
-        CVI_TDL_DestroyHandle(g_tdl_handle);
-        g_tdl_handle = NULL;
+    // Deinitialize VPSS
+    deinit_face_detection_vpss();
+    
+    // Destroy TDL handle
+    if (g_face_ctx.tdl_handle) {
+        CVI_TDL_DestroyHandle(g_face_ctx.tdl_handle);
+        g_face_ctx.tdl_handle = NULL;
     }
     
-    // Cleanup model buffer (TDL should have freed it, but be safe)
+    // Free model buffer
     if (g_model_buffer) {
         free(g_model_buffer);
         g_model_buffer = NULL;
     }
     
-    // Deinitialize spiflash
-    csi_spiflash_spi_uninit(&g_spiflash_handle);
+    // Destroy mutex
+    pthread_mutex_destroy(&g_face_ctx.mutex);
     
-    // Deinitialize TPU
-    cvi_tpu_deinit();
-    
-    // Cleanup mutex
-    pthread_mutex_destroy(&g_face_detection_mutex);
-    
-    printf("[%s] Face detection system deinitialized!\n", TAG);
-
+    g_face_ctx.initialized = CVI_FALSE;
+    printf("[%s] ✅ Face detection module deinitialized\n", TAG);
 }
 
 /**
- * Process detected faces and print messages
+ * Process frame for face detection
  */
-void process_detected_faces(cvtdl_face_t *face_meta)
-{
-    if (face_meta->size > 0) {
-        g_total_faces_detected += face_meta->size;
-        
-        printf("\n🎯 [FACE DETECTED] %d face(s) found in frame!\n", face_meta->size);
-        
-        for (uint32_t i = 0; i < face_meta->size; i++) {
-            cvtdl_face_info_t *face_info = &face_meta->info[i];
-            
-            printf("   Face %d: Position=(%.1f,%.1f,%.1f,%.1f) Confidence=%.3f\n",
-                   i + 1,
-                   face_info->bbox.x1, face_info->bbox.y1,
-                   face_info->bbox.x2, face_info->bbox.y2,
-                   face_info->bbox.score);
-        }
-        
-        printf("   📊 Total faces detected so far: %d\n", g_total_faces_detected);
-        printf("   📈 Detection rate: %.1f%% (%d/%d frames)\n", 
-               (float)g_detection_frames * 100.0f / (g_detection_frames + 1),
-               g_detection_frames, g_detection_frames + 1);
-        printf("\n");
-    }
-}
-
-/**
- * Main face detection thread
- */
-void* face_detection_thread(void* arg)
+int face_detection_process_frame(VIDEO_FRAME_INFO_S *frame, VPSS_CHN_ATTR_S *chn_attr,
+                                 face_detection_result_t *results, int max_results)
 {
     CVI_S32 ret = CVI_SUCCESS;
-    cvtdl_face_t face_meta = {0};
-    VIDEO_FRAME_INFO_S video_frame;
+    VIDEO_FRAME_INFO_S processed_frame = {0};
+    int num_faces = 0;
     
-    printf("[%s] Face detection thread started!\n", TAG);
-    
-    while (g_face_detection_running) {
-        pthread_mutex_lock(&g_face_detection_mutex);
-        
-
-        /*
-        possible SS_GetChnFrame(): Grp(15) isn't created yet.
-        */        
-                // Get frame from VPSS
-        ret = CVI_VPSS_GetChnFrame(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN,
-                                  &video_frame, FACE_DETECTION_TIMEOUT);
-        
-        if (ret != CVI_SUCCESS) {
-            pthread_mutex_unlock(&g_face_detection_mutex);
-            aos_msleep(100);
-            continue;
-        }
-        
-        // Clear face metadata
-        memset(&face_meta, 0, sizeof(cvtdl_face_t));
-        
-        // Run face detection
-        ret = CVI_TDL_FaceDetection(g_tdl_handle, &video_frame, 
-                                   CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &face_meta);
-        
-        if (ret == CVI_SUCCESS) {
-            g_detection_frames++;
-            process_detected_faces(&face_meta);
-        } else {
-            printf("[%s] Face detection failed: %d\n", TAG, ret);
-        }
-        
-        // Release frame
-        CVI_VPSS_ReleaseChnFrame(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN, &video_frame);
-        
-        // Free face metadata
-        CVI_TDL_Free(&face_meta);
-        
-        pthread_mutex_unlock(&g_face_detection_mutex);
-        
-        // Small delay to prevent excessive CPU usage
-        aos_msleep(33); // ~30 FPS
+    if (!g_face_ctx.initialized || !frame || !results || max_results <= 0) {
+        return -1;
     }
     
-    printf("[%s] Face detection thread stopped!\n", TAG);
-    return NULL;
-}
-
-// 1 check and call face_detection_init
-// 2 run g_face_detection_thread
-int face_detection_start(void)
-{
-    int ret = 0;
-    pthread_attr_t thread_attr;
+    pthread_mutex_lock(&g_face_ctx.mutex);
     
-    if (g_face_detection_running) {
-        printf("[%s] Face detection already running!\n", TAG);
-        return CVI_SUCCESS;
-    }
-    
-    printf("[%s] Starting face detection...\n", TAG);
-    
-    // Initialize face detection system
-    ret = face_detection_init();
+    // Send frame to VPSS for preprocessing (resize + format conversion)
+    ret = CVI_VPSS_SendFrame(FACE_DETECTION_VPSS_GRP, frame, FACE_DETECTION_TIMEOUT);
     if (ret != CVI_SUCCESS) {
-        printf("[%s] Face detection initialization failed: %d\n", TAG, ret);
-        return ret;
+        printf("[%s] Failed to send frame to VPSS: %d\n", TAG, ret);
+        pthread_mutex_unlock(&g_face_ctx.mutex);
+        return -1;
     }
     
-    // Set thread attributes
-    pthread_attr_init(&thread_attr);
-    pthread_attr_setstacksize(&thread_attr, 8192);
-    
-    // Start detection thread
-    g_face_detection_running = 1;
-    ret = pthread_create(&g_face_detection_thread, &thread_attr, 
-                        face_detection_thread, NULL);
-    
-    if (ret != 0) {
-        printf("[%s] Failed to create face detection thread: %d\n", TAG, ret);
-        g_face_detection_running = 0;
-        face_detection_deinit();
-        return CVI_FAILURE;
+    // Get processed frame from VPSS
+    ret = CVI_VPSS_GetChnFrame(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN, 
+                              &processed_frame, FACE_DETECTION_TIMEOUT);
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Failed to get processed frame from VPSS: %d\n", TAG, ret);
+        pthread_mutex_unlock(&g_face_ctx.mutex);
+        return -1;
     }
     
-    pthread_setname_np(g_face_detection_thread, "face_detection");
+    // Perform face detection
+    cvtdl_face_t face_meta = {0};
+    ret = CVI_TDL_FaceDetection(g_face_ctx.tdl_handle, &processed_frame, 
+                               CVI_TDL_SUPPORTED_MODEL_RETINAFACE, &face_meta);
+    if (ret != CVI_SUCCESS) {
+        printf("[%s] Face detection failed: %d\n", TAG, ret);
+        CVI_VPSS_ReleaseChnFrame(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN, &processed_frame);
+        pthread_mutex_unlock(&g_face_ctx.mutex);
+        return -1;
+    }
     
-    printf("[%s] Face detection started successfully!\n", TAG);
-    printf("[%s] Monitoring video stream for faces...\n", TAG);
+    // Convert detection results
+    num_faces = (face_meta.size < max_results) ? face_meta.size : max_results;
+    for (int i = 0; i < num_faces; i++) {
+        results[i].x1 = face_meta.info[i].bbox.x1 / chn_attr->u32Width;
+        results[i].y1 = face_meta.info[i].bbox.y1 / chn_attr->u32Height;
+        results[i].x2 = face_meta.info[i].bbox.x2 / chn_attr->u32Width;
+        results[i].y2 = face_meta.info[i].bbox.y2 / chn_attr->u32Height;
+        results[i].confidence = face_meta.info[i].bbox.score;
+        results[i].valid = 1;
+    }
     
-    return CVI_SUCCESS;
+    // Update statistics
+    g_face_ctx.total_faces_detected += num_faces;
+    g_face_ctx.detection_frames++;
+    
+    // Release processed frame
+    CVI_VPSS_ReleaseChnFrame(FACE_DETECTION_VPSS_GRP, FACE_DETECTION_VPSS_CHN, &processed_frame);
+    
+    // Free face metadata
+    CVI_TDL_Free(&face_meta);
+    
+    pthread_mutex_unlock(&g_face_ctx.mutex);
+    
+    if (num_faces > 0) {
+        printf("[%s] Detected %d faces\n", TAG, num_faces);
+    }
+    
+    return num_faces;
 }
 
 /**
- * Stop face detection
+ * Draw bounding boxes on frame (simple implementation)
  */
-void face_detection_stop(void)
+void face_detection_draw_boxes(VIDEO_FRAME_INFO_S *frame, VPSS_CHN_ATTR_S *chn_attr,
+                               face_detection_result_t *results, int num_results)
 {
-    printf("[%s] Stopping face detection...\n", TAG);
+    // This is a placeholder implementation
+    // In a real implementation, you would draw rectangles on the YUYV frame
+    // For now, we'll just print the detection results
     
-    g_face_detection_running = 0;
-    
-    if (g_face_detection_thread) {
-        pthread_join(g_face_detection_thread, NULL);
-        g_face_detection_thread = 0;
+    if (!frame || !chn_attr || !results || num_results <= 0) {
+        return;
     }
     
-    face_detection_deinit();
-    
-    printf("[%s] Face detection stopped!\n", TAG);
-    printf("[%s] Final statistics: %d faces detected in %d frames\n", 
-           TAG, g_total_faces_detected, g_detection_frames);
+    printf("[%s] Drawing %d face bounding boxes:\n", TAG, num_results);
+    for (int i = 0; i < num_results; i++) {
+        if (results[i].valid) {
+            printf("  Face %d: (%.3f, %.3f) to (%.3f, %.3f), confidence: %.3f\n",
+                   i, results[i].x1, results[i].y1, results[i].x2, results[i].y2, results[i].confidence);
+        }
+    }
 }
 
 /**
@@ -458,8 +393,18 @@ void face_detection_stop(void)
  */
 void face_detection_get_stats(int *total_faces, int *total_frames)
 {
-    pthread_mutex_lock(&g_face_detection_mutex);
-    *total_faces = g_total_faces_detected;
-    *total_frames = g_detection_frames;
-    pthread_mutex_unlock(&g_face_detection_mutex);
+    if (total_faces) {
+        *total_faces = g_face_ctx.total_faces_detected;
+    }
+    if (total_frames) {
+        *total_frames = g_face_ctx.detection_frames;
+    }
+}
+
+/**
+ * Check if face detection is initialized
+ */
+CVI_BOOL face_detection_is_initialized(void)
+{
+    return g_face_ctx.initialized;
 }
